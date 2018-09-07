@@ -4,6 +4,10 @@ extern crate syntect;
 extern crate serde_json;
 extern crate reqwest;
 extern crate gdk;
+#[macro_use]
+extern crate static_map;
+#[macro_use]
+extern crate static_map_macros;
 
 use gio::prelude::*;
 use gtk::prelude::*;
@@ -16,8 +20,6 @@ use reqwest::mime::{Mime, APPLICATION, JSON};
 use syntect::easy::HighlightLines;
 use syntect::parsing::SyntaxSet;
 use syntect::highlighting::{ThemeSet, Style, Color};
-use syntect::util::as_24_bit_terminal_escaped;
-
 
 // make moving clones into closures more convenient
 macro_rules! clone {
@@ -63,6 +65,14 @@ fn conv_to_tag(buffer: &mut gtk::TextBuffer, style: Style) -> String {
     hash
 }
 
+use static_map::Map;
+
+static KNOWN_HEADERS: Map<&'static str, bool> = static_map! {
+    Default: false,
+    "cookie" => true,
+    "accept-encoding" => true,
+};
+
 pub fn build_ui(application: &gtk::Application) {
     let glade_src = include_str!("main.glade");
     let builder = Builder::new_from_string(glade_src);
@@ -82,6 +92,7 @@ pub fn build_ui(application: &gtk::Application) {
     let perform_btn: Button = builder.get_object("performBtn").expect("performBtn not found");
     let url_inp: Entry = builder.get_object("urlInp").expect("urlInp not found");
     let resp_mtx: TextView = builder.get_object("respMtx").expect("respMtx not found");
+    let headers_mtx: TextView = builder.get_object("headersMtx").expect("headersMtx not found");
 
     // TODO: take from color theme
     let back_color = gdk::RGBA::black();
@@ -92,11 +103,20 @@ pub fn build_ui(application: &gtk::Application) {
     resp_mtx.override_color(gtk::StateFlags::NORMAL, Some(&front_color));
 
     perform_btn.connect_clicked(clone!(resp_mtx, url_inp => move |_| {
+        let mut headers = reqwest::header::Headers::new();
+        let headers_buffer = headers_mtx.get_buffer().unwrap();
+        for line in headers_buffer.get_text(&headers_buffer.get_start_iter(), &headers_buffer.get_end_iter(), true).unwrap().lines() {
+            let tokens = line.clone().split(":").collect::<Vec<&str>>();
+            let entry = KNOWN_HEADERS.get_entry(String::from(tokens[0]).to_lowercase().as_str());
+
+            if entry.is_some() {
+                headers.append_raw(*entry.unwrap().0, String::from(tokens[1]).into_bytes());
+            }
+        }
+
         
-        let mut cookie = reqwest::header::Cookie::new();
-        cookie.append("PHPSESSID", "sg51fc0t3na1p7bhq0f8ns6up2");
         let client = reqwest::Client::new();
-        let result = client.get(&url_inp.get_text().unwrap()).header(cookie).send();
+        let result = client.get(&url_inp.get_text().unwrap()).headers(headers).send();
         match result {
 
             Ok(mut x) => {
@@ -122,14 +142,7 @@ pub fn build_ui(application: &gtk::Application) {
                                 //let tag = resp_mtx.get_buffer().unwrap().get_tag_table().unwrap().lookup(&tag_name).unwrap();
                             }
                             resp_mtx.get_buffer().unwrap().insert(&mut resp_mtx.get_buffer().unwrap().get_end_iter(), "\n");
-                            let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
-                            println!("{}", escaped);
                         }
-
-                        //resp_mtx.get_buffer().expect("resp_mtx has no buffer").set_text(&serde_json::ser::to_string_pretty(&json).unwrap());
-                        //let iter1 = resp_mtx.get_buffer().unwrap().get_iter_at_line_offset(2, 0);
-                        //let iter2 = resp_mtx.get_buffer().unwrap().get_iter_at_line_offset(4, 0);
-                        //resp_mtx.get_buffer().unwrap().apply_tag_by_name("sntx_comment", &iter1, &iter2);
                     },
                     _ => resp_mtx.get_buffer().expect("resp_mtx has no buffer").set_text(&x.text().unwrap())
                 }
