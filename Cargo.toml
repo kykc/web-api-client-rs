@@ -1,0 +1,16 @@
+[package]
+name = "web-test"
+version = "0.1.0"
+authors = ["kykc"]
+build = "build.rs"
+
+[dependencies]
+gio = "0.4.1"
+serde_json = "1.0"
+reqwest = "0.8.8"
+syntect = "2.1"
+gdk = "0.8.0"
+
+[dependencies.gtk]
+version = "0.4.1"
+features = ["v3_20"]
