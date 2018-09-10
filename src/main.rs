@@ -165,6 +165,40 @@ struct Config {
     pub headers: String,
 }
 
+struct DisplayJobPlainText;
+
+struct DisplayJobJson<'a> {
+    syntaxes: &'a syntect::parsing::SyntaxSet,
+    themes: &'a syntect::highlighting::ThemeSet,
+    json: serde_json::Value,
+}
+
+trait DisplayJobExt {
+    fn perform(&self, &TextView, &str);
+}
+
+impl DisplayJobExt for DisplayJobPlainText {
+    fn perform(&self, target: &TextView, raw_text: &str) {
+        target.replace_all_text(raw_text);
+    }
+}
+
+impl<'a> DisplayJobExt for DisplayJobJson<'a> {
+    fn perform(&self, target: &TextView, _raw_text: &str) {
+        let json_syntax = self.syntaxes.find_syntax_by_extension("json").expect("Cannot find JSON syntax highlighter");
+        let mut h = HighlightLines::new(json_syntax, &self.themes.themes["base16-ocean.dark"]);
+        let json_string = serde_json::ser::to_string_pretty(&self.json).expect("Cannot stringify JSON");
+        target.clear_all_text();
+        for line in json_string.lines() {
+            let ranges: Vec<(Style, &str)> = h.highlight(line);
+            for range in &ranges {
+                target.append_styled_text(range.1, &range.0);
+            }
+            target.append_text("\n");
+        }
+    }
+}
+
 static KNOWN_HEADERS: Map<&'static str, bool> = static_map! {
     Default: false,
     "cookie" => true,
@@ -190,7 +224,7 @@ fn write_config(config: &Config) {
             panic!("couldn't write to {}: {}", display,
                                                why.description())
         },
-        Ok(_) => println!("successfully wrote to {}", display),
+        Ok(_) => (),
     }
 }
 
@@ -218,6 +252,12 @@ fn get_current_confg() -> Config {
     write_config(&default_config);
 
     default_config
+}
+
+fn show_message<T: gtk::prelude::IsA<gtk::Window>>(msg: &str, window: &T) {
+    let dialog = gtk::MessageDialog::new(Some(window), gtk::DialogFlags::MODAL, gtk::MessageType::Warning, gtk::ButtonsType::Ok, msg);
+    dialog.connect_response(|dialog, _| dialog.destroy());
+    dialog.run();
 }
 
 pub fn build_ui(application: &gtk::Application) {
@@ -272,7 +312,7 @@ pub fn build_ui(application: &gtk::Application) {
     #[allow(deprecated)]
     resp_mtx.override_background_color(gtk::StateFlags::SELECTED, Some(&gdk::RGBA::black()));
 
-    perform_btn.connect_clicked(clone!(resp_mtx, url_inp => move |_| {
+    perform_btn.connect_clicked(clone!(resp_mtx, url_inp, window => move |_| {
         let mut headers = reqwest::header::Headers::new();
         for line in headers_mtx.get_all_text().lines() {
             let tokens = line.clone().split(":").collect::<Vec<&str>>();
@@ -287,31 +327,23 @@ pub fn build_ui(application: &gtk::Application) {
         let client = reqwest::Client::new();
         let result = client.get(&url_inp.get_all_text()).headers(headers).send();
         match result {
-
             Ok(mut x) => {
-                // TODO: unwrap or text/plain
+                let response_text = x.text().unwrap_or(String::from(""));
+                // TODO: assume text/plain if no header is supplied
                 let mime: Mime = x.headers().get::<reqwest::header::ContentType>().unwrap().0.clone();
-                match (mime.type_(), mime.subtype()) {
+                let job: Box<DisplayJobExt> = match (mime.type_(), mime.subtype()) {
                     (APPLICATION, JSON) => {
-                        // TODO: fallback to plain display if JSON cannot be parsed
-                        let json: serde_json::Value = serde_json::from_str(&x.text().unwrap_or(String::from(""))).unwrap();
-                        let json_syntax = ps.find_syntax_by_extension("json").expect("Cannot find JSON syntax highlighter");
-                        let mut h = HighlightLines::new(json_syntax, &ts.themes["base16-ocean.dark"]);
-                        let json_string = serde_json::ser::to_string_pretty(&json).expect("Cannot stringify JSON");
-                        resp_mtx.clear_all_text();
-                        for line in json_string.lines() {
-                            let ranges: Vec<(Style, &str)> = h.highlight(line);
-
-                            for range in &ranges {
-                                resp_mtx.append_styled_text(range.1, &range.0);
-                            }
-                            resp_mtx.append_text("\n");
+                        match serde_json::from_str(&response_text) {
+                            Ok(json) => Box::new(DisplayJobJson{syntaxes: &ps, themes: &ts, json: json}),
+                            Err(_) => Box::new(DisplayJobPlainText{})
                         }
                     },
-                    _ => resp_mtx.get_buffer().expect("resp_mtx has no buffer").set_text(&x.text().unwrap_or(String::from("")))
-                }
+                    _ => Box::new(DisplayJobPlainText{})
+                };
+
+                job.perform(&resp_mtx, &response_text);
             },
-            Err(_y) => println!("Request failed"),
+            Err(err) => show_message(&(String::from("Request failed: ") + err.description()), &window),
         }
     }));
 
