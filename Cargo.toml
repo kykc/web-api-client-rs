@@ -1,5 +1,5 @@
 [package]
-name = "web-test"
+name = "web_api_client"
 version = "0.1.0"
 authors = ["kykc"]
 build = "build.rs"
@@ -14,6 +14,7 @@ syntect = "2.1"
 gdk = "0.8.0"
 static_map = "0.1.1"
 static_map_macros = "0.1.1"
+libxml = "0.2.2"
 
 [dependencies.gtk]
 version = "0.4.1"

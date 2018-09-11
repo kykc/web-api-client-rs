@@ -20,7 +20,6 @@
   </object>
   <object class="GtkTextBuffer" id="textbuffer1">
     <property name="tag_table">texttagtable1</property>
-    <property name="text" translatable="yes">zho</property>
   </object>
   <object class="GtkApplicationWindow" id="window1">
     <property name="width_request">1366</property>
@@ -309,6 +308,9 @@
                     <property name="right_margin">4</property>
                     <property name="buffer">textbuffer1</property>
                     <property name="monospace">True</property>
+                    <style>
+                      <class name="au-code-view"/>
+                    </style>
                   </object>
                 </child>
               </object>
