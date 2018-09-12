@@ -1,4 +1,5 @@
 /target
 **/*.rs.bk
 /src/main.glade~
+/src/main.glade.bak
 /.vscode

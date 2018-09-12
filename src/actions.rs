@@ -10,6 +10,7 @@ static KNOWN_HEADERS: static_map::Map<&'static str, bool> = static_map! {
     Default: false,
     "cookie" => true,
     "accept-encoding" => true,
+    "content-type" => true,
 };
 
 pub fn populate_headers(text: &str) -> Headers {
@@ -21,7 +22,7 @@ pub fn populate_headers(text: &str) -> Headers {
 
             match entry {
                 Some(e) => headers.append_raw(*e.0, String::from(tokens[1]).into_bytes()),
-                None => ()
+                None => () // TODO: show warning about unsupported header
             }
         }
 
@@ -70,7 +71,7 @@ pub fn beautify_response_text(extension: &'static str, text: &str) -> String {
         CONTENT_TYPE_HTML => {
             let parser = libxml::parser::Parser::default_html();
             match parser.parse_string(&text) {
-                Ok(doc) => doc.to_string(true),
+                Ok(doc) => if parser.is_well_formed_html(text) { doc.to_string(true) } else { text.to_owned() },
                 Err(_) => text.to_owned()
             }
         }

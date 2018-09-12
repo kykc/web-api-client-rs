@@ -1,5 +1,5 @@
 use text_out::{TextWidget, TextWidgetStyled};
-use gtk::{TextView, Entry, TextViewExt, EntryExt, TextBufferExt, TextBuffer, TextTagTableExt, TextTag, TextTagExt, DialogExt, WidgetExt};
+use gtk::{TextView, Entry, TextViewExt, EntryExt, TextBufferExt, TextBuffer, TextTagTableExt, TextTag, TextTagExt, DialogExt, WidgetExt, ContainerExt, Cast};
 use gdk::RGBA;
 use gtk;
 use syntect::highlighting::{Style, Color};
@@ -124,4 +124,16 @@ pub fn show_message<T: gtk::prelude::IsA<gtk::Window>>(msg: &str, window: &T) {
     let dialog = gtk::MessageDialog::new(Some(window), gtk::DialogFlags::MODAL, gtk::MessageType::Warning, gtk::ButtonsType::Ok, msg);
     dialog.connect_response(|dialog, _| dialog.destroy());
     dialog.run();
+}
+
+pub fn traverse_gtk_container(container: &gtk::Container, worker: &Fn(&gtk::Container)) {
+    worker(&container);
+    
+    for widget in container.get_children() {
+        let sub_container: Option<&gtk::Container> = widget.downcast_ref();
+        match sub_container {
+            Some(sub) => traverse_gtk_container(&sub, worker),
+            None => ()
+        };
+    }
 }

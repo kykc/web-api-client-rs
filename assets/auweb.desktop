@@ -1,0 +1,7 @@
+[Desktop Entry]
+Comment=auweb
+Terminal=false
+Name=auweb
+Exec=/usr/bin/auweb
+Type=Application
+Icon=/usr/share/icons/auweb.png

@@ -51,8 +51,8 @@ pub fn get_current_config() -> Config {
 }
 
 fn get_config_path() -> PathBuf {
-    let executable_path: PathBuf = env::current_exe().expect("Cannot get executable path");
-    let config_path: PathBuf = executable_path.with_file_name("config.json");
-
-    config_path
+    let mut path: PathBuf = env::home_dir().expect("Cannot get use home directory location");
+    path.push(".auweb.json");
+    
+    path
 }

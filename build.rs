@@ -19,7 +19,7 @@ fn mingw_check_47048() {
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR"));
     let try_dir = out_dir.join("try_47048");
     let mut cmd;
-println!("zhopa!!!");
+
     fs::create_dir_all(&try_dir).expect("create directory");
     create_file(&try_dir.join("say_hi.c"), SAY_HI_C);
     create_file(&try_dir.join("c_main.c"), C_MAIN_C);
@@ -139,7 +139,7 @@ fn main() {
 const WORKAROUND_C: &'static str = r#"/* workaround.c */
 #define _CRTBLD
 #include <stdio.h>
-
+int xmlIndentTreeOutput = 0; // Fix for borken msys2 libxml2, should be removed when fix arrives from their side
 FILE *__cdecl __acrt_iob_func(unsigned index)
 {
     return &(__iob_func()[index]);
