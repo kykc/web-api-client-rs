@@ -4,6 +4,7 @@ pub struct Config {
     pub height: u32,
     pub url: String,
     pub headers: String,
+    pub request: Option<String>,
 }
 
 use serde_json;
@@ -35,7 +36,14 @@ pub fn write_config(config: &Config) {
 }
 
 pub fn get_current_config() -> Config {
-    let mut default_config = Config {height: (600u32), width: (1366u32), url: "https://api.github.com/users/kykc/repos".to_string(), headers: "".to_string()};
+    let mut default_config = Config{
+        height: (600u32), 
+        width: (1366u32), 
+        url: "https://api.github.com/users/kykc/repos".to_string(), 
+        headers: "".to_string(),
+        request: Some("".to_string()),
+    };
+
     let config_path = get_config_path();
 
     if Path::new(config_path.to_str().unwrap()).exists() {

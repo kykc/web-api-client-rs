@@ -85,6 +85,11 @@ impl MainWindow {
         window.set_allocation(&window_rect);
         url_inp.set_text(&config.url);
         headers_mtx.replace_all_text(&config.headers);
+
+        match config.request {
+            Some(ref text) => req_mtx.replace_all_text(&text),
+            None => ()
+        };
         
         window.set_application(application);
 
@@ -137,6 +142,7 @@ pub fn build_ui(application: &gtk::Application) {
             height: m_win.window.get_allocated_height() as u32, 
             width: m_win.window.get_allocated_width() as u32,
             headers: m_win.headers_mtx.get_all_text(),
+            request: Some(m_win.req_mtx.get_all_text()),
         };
 
         config::write_config(&new_config);
