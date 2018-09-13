@@ -92,8 +92,24 @@ impl MainWindow {
             search_bar.set_search_mode(!search_bar.get_search_mode());
         }));
 
+        search_inp.connect_activate(move |search_inp| {
+            search_inp.emit_next_match();
+        });
+
         search_inp.connect_next_match(gtk_clone!(resp_mtx => move |search_inp| {
             let pattern = search_inp.upcast_ref::<gtk::Entry>().get_all_text();
+            let buffer = resp_mtx.get_buffer().unwrap();
+            let cursor = buffer.get_insert().unwrap();
+            let cursor_iter = buffer.get_iter_at_mark(&cursor);
+            let found = cursor_iter.forward_search(&pattern, gtk::TextSearchFlags::CASE_INSENSITIVE, None);
+
+            match found {
+                Some(pair) => {
+                    buffer.select_range(&pair.1, &pair.0);
+                    resp_mtx.scroll_mark_onscreen(&cursor);
+                },
+                None => ()
+            };
         }));
 
         MainWindow {
@@ -191,4 +207,3 @@ pub fn main() {
     application.connect_activate(|_| {});
     application.run(&args().collect::<Vec<_>>());
 }
-
