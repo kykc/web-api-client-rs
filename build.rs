@@ -1,8 +1,11 @@
+extern crate windres;
+
 use std::env;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use windres::Build;
 
 fn main() {
     let target = env::var_os("TARGET")
@@ -11,6 +14,8 @@ fn main() {
         .expect("TARGET");
     if target.contains("-windows-gnu") {
         mingw_check_47048();
+
+        Build::new().compile("src/main.rc").unwrap();
     }
 }
 
@@ -139,7 +144,7 @@ fn main() {
 const WORKAROUND_C: &'static str = r#"/* workaround.c */
 #define _CRTBLD
 #include <stdio.h>
-extern int xmlIndentTreeOutput = 0; // Fix for borken msys2 libxml2, should be removed when fix arrives from their side
+int xmlIndentTreeOutput = 0; // Fix for borken msys2 libxml2, should be removed when fix arrives from their side
 FILE *__cdecl __acrt_iob_func(unsigned index)
 {
     return &(__iob_func()[index]);

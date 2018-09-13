@@ -25,6 +25,9 @@ features = ["v3_20"]
 version = "^1.0"
 features = ["preserve_order"]
 
+[target.'cfg(windows)'.build-dependencies]
+windres = "^0.2"
+
 [package.metadata.deb]
 assets = [
     ["target/release/web_api_client", "usr/bin/auweb", "755"],
