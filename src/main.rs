@@ -105,7 +105,13 @@ impl MainWindow {
             let pattern = search_inp.upcast_ref::<gtk::Entry>().get_all_text();
             let buffer = resp_mtx.get_buffer().unwrap();
             let cursor = buffer.get_insert().unwrap();
-            let cursor_iter = buffer.get_iter_at_mark(&cursor);
+            let mut cursor_iter = buffer.get_iter_at_mark(&cursor);
+
+            if cursor_iter == buffer.get_end_iter() {
+                buffer.place_cursor(&buffer.get_start_iter());
+                cursor_iter = buffer.get_iter_at_mark(&cursor);
+            }
+
             let found = cursor_iter.forward_search(&pattern, gtk::TextSearchFlags::CASE_INSENSITIVE, None);
 
             match found {
@@ -113,7 +119,7 @@ impl MainWindow {
                     buffer.select_range(&pair.1, &pair.0);
                     resp_mtx.scroll_mark_onscreen(&cursor);
                 },
-                None => ()
+                None => buffer.place_cursor(&buffer.get_end_iter())
             };
         }));
 
