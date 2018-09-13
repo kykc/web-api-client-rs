@@ -1,30 +1,29 @@
 use reqwest::header::{Headers, ContentType};
 use reqwest::mime::{Mime, TEXT_PLAIN, APPLICATION, JSON, TEXT, XML, HTML};
-use static_map;
 use syntax_highlight::{CONTENT_TYPE_DEFAULT, CONTENT_TYPE_JSON, CONTENT_TYPE_XML, CONTENT_TYPE_HTML};
 use serde_json;
 use libxml;
 use libxml::bindings::xmlKeepBlanksDefault;
+use gtk;
+use gtk_ext;
 
-static KNOWN_HEADERS: static_map::Map<&'static str, bool> = static_map! {
-    Default: false,
-    "cookie" => true,
-    "accept-encoding" => true,
-    "content-type" => true,
-};
-
-pub fn populate_headers(text: &str) -> Headers {
+pub fn populate_headers<T: gtk::prelude::IsA<gtk::Window>>(text: &str, win: &T) -> Headers {
     let mut headers = Headers::new();
 
     for line in text.lines() {
-            let tokens = line.split(":").collect::<Vec<&str>>();
-            let entry = KNOWN_HEADERS.get_entry(String::from(tokens[0]).to_lowercase().as_str());
-
-            match entry {
-                Some(e) => headers.append_raw(*e.0, String::from(tokens[1]).into_bytes()),
-                None => () // TODO: show warning about unsupported header
+        let tokens = line.split(":").collect::<Vec<&str>>();
+            
+        match tokens.len() {
+            2 => {
+                let name = String::from(tokens[0]);
+                headers.append_raw(name, String::from(tokens[1]).into_bytes());
+            },
+            _ => {
+                let msg = String::from("Invalid header omitted: ") + line;
+                gtk_ext::show_message(&msg, win);
             }
-        }
+        };
+    }
 
     headers
 }

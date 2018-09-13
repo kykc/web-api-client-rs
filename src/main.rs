@@ -152,7 +152,7 @@ pub fn build_ui(application: &gtk::Application) {
 
     m_win.perform_btn.connect_clicked(gtk_clone!(m_win => move |_| {
         let client = reqwest::Client::new();
-        let headers = actions::populate_headers(&m_win.headers_mtx.get_all_text());
+        let headers = actions::populate_headers(&m_win.headers_mtx.get_all_text(), &m_win.window);
         
         let result = match m_win.get_request_method() {
             RequestMethod::GetWithUri => {
