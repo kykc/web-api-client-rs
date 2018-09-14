@@ -1,6 +1,6 @@
 [package]
 name = "web_api_client"
-version = "0.1.3"
+version = "0.1.5"
 authors = ["kykc"]
 build = "build.rs"
 license = "MIT"
@@ -17,6 +17,10 @@ static_map = "^0.1"
 static_map_macros = "^0.1"
 libxml = "^0.2"
 
+[dependencies.sourceview]
+features = ["v3_20"]
+version = "^0.5"
+
 [dependencies.gtk]
 version = "^0.5"
 features = ["v3_20"]
@@ -32,5 +36,6 @@ windres = "^0.2"
 assets = [
     ["target/release/web_api_client", "usr/bin/auweb", "755"],
     ["assets/auweb.desktop", "usr/share/applications/", "644"],
-    ["assets/auweb.png", "usr/share/icons/", "644"]
+    ["assets/auweb.png", "usr/share/icons/", "644"],
+    ["assets/tomorrownighteighties.xml", "usr/share/gtksourceview-3.0/styles/", "644"],
 ]

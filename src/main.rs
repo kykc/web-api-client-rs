@@ -2,13 +2,11 @@
 
 extern crate gio;
 extern crate gtk;
-extern crate syntect;
 extern crate serde_json;
 extern crate reqwest;
 extern crate gdk;
 extern crate libxml;
-#[macro_use] extern crate static_map;
-#[macro_use] extern crate static_map_macros;
+extern crate sourceview;
 #[macro_use] extern crate serde_derive;
 
 use gio::prelude::*;
@@ -19,7 +17,6 @@ use std::env::args;
 use std::error::Error;
 use reqwest::mime::{Mime};
 
-use syntect::highlighting::{ThemeSet};
 use text_out::{TextWidget};
 
 mod syntax_highlight;
@@ -33,7 +30,7 @@ struct MainWindow {
     pub window: ApplicationWindow,
     pub perform_btn: Button,
     pub url_inp: Entry,
-    pub resp_mtx: TextView,
+    pub resp_mtx: sourceview::View,
     pub headers_mtx: TextView,
     pub method_sel: ComboBoxText,
     pub req_mtx: TextView,
@@ -71,7 +68,7 @@ impl MainWindow {
         let window: ApplicationWindow = builder.get_object("window1").expect("Couldn't get window1");
         let perform_btn: Button = builder.get_object("performBtn").expect("performBtn not found");
         let url_inp: Entry = builder.get_object("urlInp").expect("urlInp not found");
-        let resp_mtx: TextView = builder.get_object("respMtx").expect("respMtx not found");
+        let resp_mtx: sourceview::View = builder.get_object("respMtx").expect("respMtx not found");
         let req_mtx: TextView = builder.get_object("reqMtx").expect("reqMtx not found");
         let headers_mtx: TextView = builder.get_object("headersMtx").expect("headersMtx not found");
         let method_sel: ComboBoxText = builder.get_object("methodSel").expect("methodSel not found");
@@ -141,9 +138,6 @@ pub fn build_ui(application: &gtk::Application) {
     let config = config::get_current_config();
     let m_win = MainWindow::new(include_str!("main.glade"), &config, application);
     
-    let ps = syntax_highlight::create_syntax_set();
-    let ts = ThemeSet::load_defaults();
-    
     m_win.window.connect_delete_event(gtk_clone!(m_win => move |_, _| {
         let new_config = config::Config {
             url: m_win.url_inp.get_all_text(), 
@@ -198,10 +192,12 @@ pub fn build_ui(application: &gtk::Application) {
                 let response_text = x.text().unwrap_or(String::from(""));
                 let mime: Mime = actions::detect_mime_type(x.headers());
                 let extension: &'static str = actions::conv_mime_type_to_extension(&mime);
-                syntax_highlight::output_with_syntax_highlight(
+                
+                syntax_highlight::output_to_sourceview(
                     &m_win.resp_mtx, 
-                    &actions::beautify_response_text(extension, &response_text), 
-                    extension, &ps, &ts);
+                    &actions::beautify_response_text(extension, &response_text),
+                    extension,
+                    Some(&mime.to_string()));
             },
             Err(err) => gtk_ext::show_message(&(String::from("Request failed: ") + err.description()), &m_win.window),
         }
