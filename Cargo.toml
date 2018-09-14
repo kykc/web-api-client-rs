@@ -12,9 +12,6 @@ gdk = "^0.9"
 serde = "^1.0"
 serde_derive = "^1.0"
 reqwest = "^0.8"
-syntect = "^2.1"
-static_map = "^0.1"
-static_map_macros = "^0.1"
 libxml = "^0.2"
 
 [dependencies.sourceview]
