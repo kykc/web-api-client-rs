@@ -1,3 +1,4 @@
+#[cfg(windows)]
 extern crate windres;
 
 use std::env;
@@ -5,6 +6,7 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+#[cfg(windows)]
 use windres::Build;
 
 fn main() {
@@ -15,6 +17,7 @@ fn main() {
     if target.contains("-windows-gnu") {
         mingw_check_47048();
 
+        #[cfg(windows)]
         Build::new().compile("src/main.rc").unwrap();
     }
 }
