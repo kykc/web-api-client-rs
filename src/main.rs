@@ -7,6 +7,7 @@ extern crate reqwest;
 extern crate gdk;
 extern crate libxml;
 extern crate sourceview;
+extern crate dirs;
 #[macro_use] extern crate serde_derive;
 
 use gio::prelude::*;
@@ -18,6 +19,7 @@ use std::error::Error;
 use reqwest::mime::{Mime};
 
 use text_out::{TextWidget};
+use sourceview::{StyleSchemeManagerExt, BufferExt};
 
 mod syntax_highlight;
 mod config;
@@ -40,6 +42,19 @@ enum RequestMethod {
     GetWithUri = 1,
     PostWithForm = 2,
     PostRaw = 3,
+}
+
+trait Flatten<T> {
+    fn flatten(self) -> Option<T>;
+}
+
+impl<T> Flatten<T> for Option<Option<T>> {
+    fn flatten(self) -> Option<T> {
+        match self {
+            None => None,
+            Some(v) => v,
+        }
+    }
 }
 
 impl MainWindow {
@@ -121,6 +136,22 @@ impl MainWindow {
                 None => buffer.place_cursor(&buffer.get_end_iter())
             };
         }));
+
+        let manager = sourceview::StyleSchemeManager::new();
+
+        let executable_path = std::env::current_exe().ok().
+            map(|x| x.with_file_name("")).
+            map(|x| x.to_str().map(|y| String::from(y))).flatten();
+
+        match executable_path {
+            Some(p) => manager.append_search_path(&p),
+            None => ()
+        };
+
+        manager
+            .get_scheme("tomorrownighteighties")
+            .or(manager.get_scheme("Classic"))
+            .map(|theme| resp_mtx.get_buffer().unwrap().downcast_ref::<sourceview::Buffer>().unwrap().set_style_scheme(&theme));
 
         MainWindow {
             window: window, 

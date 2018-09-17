@@ -12,7 +12,7 @@ use std::fs::{File};
 use std::error::Error;
 use std::io::{Write, Read};
 use std::path::{Path, PathBuf};
-use std::env;
+use dirs;
 
 pub fn write_config(config: &Config) {
     let config_path = get_config_path();
@@ -59,7 +59,7 @@ pub fn get_current_config() -> Config {
 }
 
 fn get_config_path() -> PathBuf {
-    let mut path: PathBuf = env::home_dir().expect("Cannot get use home directory location");
+    let mut path: PathBuf = dirs::home_dir().expect("Cannot get use home directory location");
     path.push(".auweb.json");
     
     path
