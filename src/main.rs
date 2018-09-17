@@ -8,11 +8,14 @@ extern crate gdk;
 extern crate libxml;
 extern crate sourceview;
 extern crate dirs;
+extern crate glib;
 #[macro_use] extern crate serde_derive;
 
 use gio::prelude::*;
 use gtk::prelude::*;
 use gtk::{Builder, Button, Entry, ApplicationWindow, TextView, Cast, StyleContextExt, ComboBoxText, MenuItemExt};
+use std::sync::mpsc::{channel, Receiver};
+use std::cell::RefCell;
 
 use std::env::args;
 use std::error::Error;
@@ -28,7 +31,7 @@ mod text_out;
 mod actions;
 
 #[derive(Clone)]
-struct MainWindow {
+pub struct MainWindow {
     pub window: ApplicationWindow,
     pub perform_btn: Button,
     pub url_inp: Entry,
@@ -36,6 +39,14 @@ struct MainWindow {
     pub headers_mtx: TextView,
     pub method_sel: ComboBoxText,
     pub req_mtx: TextView,
+    pub lang_manager: sourceview::LanguageManager,
+}
+
+struct Response
+{
+    pub text: String,
+    pub mime_type: Mime,
+    pub extension: &'static str
 }
 
 enum RequestMethod {
@@ -160,7 +171,8 @@ impl MainWindow {
             resp_mtx: resp_mtx, 
             headers_mtx: headers_mtx,
             method_sel: method_sel,
-            req_mtx: req_mtx
+            req_mtx: req_mtx,
+            lang_manager: sourceview::LanguageManager::new()
         }
     }
 }
@@ -183,58 +195,102 @@ pub fn build_ui(application: &gtk::Application) {
         Inhibit(false)
     }));
 
+    let (tx, rx) = channel();
+    GLOBAL.with(|global| {
+        *global.borrow_mut() = Some((m_win.clone(), rx))
+    });
+
     m_win.perform_btn.connect_clicked(gtk_clone!(m_win => move |_| {
-        let client = reqwest::Client::new();
-        let headers = actions::populate_headers(&m_win.headers_mtx.get_all_text(), &m_win.window);
         
-        let result = match m_win.get_request_method() {
-            RequestMethod::GetWithUri => {
-                client.get(&m_win.url_inp.get_all_text()).headers(headers).send()
-            },
-            RequestMethod::PostWithForm => {
-                let text = m_win.req_mtx.get_all_text();
-                
-                let mut form = Vec::new();
+        let headers = actions::populate_headers(&m_win.headers_mtx.get_all_text(), &m_win.window);
+        let request_method = m_win.get_request_method();
+        let url = m_win.url_inp.get_all_text();
+        let req = m_win.req_mtx.get_all_text();
+        let thread_tx = tx.clone();
+        m_win.perform_btn.set_sensitive(false);
 
-                for line in text.lines() {
-                    let tokens = line.splitn(2,'=');                    
-                    let mut key_value: (&str, &str) = ("", "");
+        let worker = move || {
+            let client = reqwest::Client::new();
+            
+            let result = match request_method {
+                RequestMethod::GetWithUri => {
+                    client.get(&url).headers(headers).send()
+                },
+                RequestMethod::PostWithForm => {
+                    let text = req;
+                    
+                    let mut form = Vec::new();
 
-                    for (i, item) in tokens.enumerate() {
-                        match i {
-                            0 => key_value.0 = item,
-                            1 => key_value.1 = item,
-                            _ => panic!("should never happen")
-                        };
+                    for line in text.lines() {
+                        let tokens = line.splitn(2,'=');                    
+                        let mut key_value: (&str, &str) = ("", "");
+
+                        for (i, item) in tokens.enumerate() {
+                            match i {
+                                0 => key_value.0 = item,
+                                1 => key_value.1 = item,
+                                _ => panic!("should never happen")
+                            };
+                        }
+
+                        form.push(key_value);
                     }
-
-                    form.push(key_value);
+                    
+                    client.post(&url).headers(headers).form(form.as_slice()).send()
+                },
+                RequestMethod::PostRaw => {
+                    client.post(&url).headers(headers).body(req).send()
                 }
-                
-                client.post(&m_win.url_inp.get_all_text()).headers(headers).form(form.as_slice()).send()
-            },
-            RequestMethod::PostRaw => {
-                client.post(&m_win.url_inp.get_all_text()).headers(headers).body(m_win.req_mtx.get_all_text()).send()
-            }
+            };
+    
+            match result {
+                Ok(mut x) => {
+                    let response_text: String = x.text().unwrap_or(String::from(""));
+                    let mime: Mime = actions::detect_mime_type(x.headers());
+                    let extension: &'static str = actions::conv_mime_type_to_extension(&mime);
+
+                    let resp = Response{text: response_text, mime_type: mime, extension: extension};
+                    thread_tx.send(Ok(resp)).unwrap();
+                },
+                Err(err) => {
+                    thread_tx.send(Err(String::from("Request failed: ") + err.description())).unwrap();
+                }
+            };
+
+            glib::idle_add(receive);
         };
- 
-        match result {
-            Ok(mut x) => {
-                let response_text = x.text().unwrap_or(String::from(""));
-                let mime: Mime = actions::detect_mime_type(x.headers());
-                let extension: &'static str = actions::conv_mime_type_to_extension(&mime);
-                
-                syntax_highlight::output_to_sourceview(
-                    &m_win.resp_mtx, 
-                    &actions::beautify_response_text(extension, &response_text),
-                    extension,
-                    Some(&mime.to_string()));
-            },
-            Err(err) => gtk_ext::show_message(&(String::from("Request failed: ") + err.description()), &m_win.window),
-        }
+
+        std::thread::spawn(worker);
     }));
 
     m_win.window.show_all();
+}
+
+thread_local!(
+    static GLOBAL: RefCell<Option<(MainWindow, Receiver<Result<Response, String>>)>> = RefCell::new(None)
+);
+
+fn receive() -> glib::Continue {
+    GLOBAL.with(|global| {
+        if let Some((ref m_win, ref rx)) = *global.borrow() {
+            if let Ok(result) = rx.try_recv() {
+                match result {
+                    Ok(resp) => {
+                        syntax_highlight::output_to_sourceview(
+                        &m_win, 
+                        &actions::beautify_response_text(resp.extension, &resp.text),
+                        resp.extension,
+                        Some(&resp.mime_type.to_string()));
+                    },
+                    Err(err) => {
+                        gtk_ext::show_message(&err, &m_win.window);
+                    }
+                };
+                m_win.perform_btn.set_sensitive(true);
+            }
+        }
+    });
+    glib::Continue(false)
 }
 
 pub fn main() {
