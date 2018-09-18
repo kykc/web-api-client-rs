@@ -1,6 +1,6 @@
 [package]
 name = "web_api_client"
-version = "0.1.7"
+version = "0.1.8"
 authors = ["kykc"]
 build = "build.rs"
 license = "MIT"
@@ -36,5 +36,6 @@ assets = [
     ["target/release/web_api_client", "usr/bin/auweb", "755"],
     ["assets/auweb.desktop", "usr/share/applications/", "644"],
     ["assets/auweb.png", "usr/share/icons/", "644"],
+    ["assets/auweb48.png", "usr/share/icons/hicolor/48x48/apps/auweb.png", "644"],
     ["assets/tomorrownighteighties.xml", "usr/share/gtksourceview-3.0/styles/", "644"],
 ]
