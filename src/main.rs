@@ -22,12 +22,10 @@ use std::env::args;
 use std::error::Error;
 use reqwest::mime::{Mime};
 
-use text_out::{TextWidget};
+use gtk_ext::{TextWidget};
 use sourceview::{StyleSchemeManagerExt, BufferExt};
 
-mod syntax_highlight;
 mod config;
-mod text_out;
 #[macro_use] mod gtk_ext;
 mod actions;
 
@@ -43,7 +41,7 @@ pub struct MainWindow {
     pub lang_manager: sourceview::LanguageManager,
 }
 
-struct Response
+pub struct Response
 {
     pub text: String,
     pub mime_type: Mime,
@@ -66,6 +64,32 @@ impl<T> Flatten<T> for Option<Option<T>> {
         match self {
             None => None,
             Some(v) => v,
+        }
+    }
+}
+
+impl<'a> From<&'a mut reqwest::Response> for Response {
+    fn from(x: &'a mut reqwest::Response) -> Self {
+        let response_text: String = x.text().unwrap_or(String::from(""));
+        let mime: Mime = actions::detect_mime_type(x.headers());
+        let extension: &'static str = actions::conv_mime_type_to_extension(&mime);
+
+        Response {
+            text: response_text, 
+            mime_type: mime, 
+            extension: extension, 
+            highlight: None
+        }
+    }
+}
+
+impl Response {
+    fn with_highlight_override(self, highlight: Option<String>) -> Self {
+        Response {
+            text: self.text,
+            mime_type: self.mime_type,
+            extension: self.extension,
+            highlight: highlight
         }
     }
 }
@@ -205,9 +229,11 @@ pub fn build_ui(application: &gtk::Application) {
     m_win.perform_btn.connect_clicked(gtk_clone!(m_win => move |_| {
         
         let headers = actions::populate_headers(&m_win.headers_mtx.get_all_text(), &m_win.window);
-        let highlight_override = match headers.get_raw("X-AU-Syntax").map(|x| x.one().map(|y| std::str::from_utf8(y))).flatten() {
-            Some(Ok(x)) => Some(String::from(x.trim())),
-            _ => None
+        let highlight_override = match headers.
+            get_raw("X-AU-Syntax").
+            map(|x| x.one().map(|y| std::str::from_utf8(y))).flatten() {
+                Some(Ok(x)) => Some(String::from(x.trim())),
+                _ => None
         };
 
         let request_method = m_win.get_request_method();
@@ -228,26 +254,7 @@ pub fn build_ui(application: &gtk::Application) {
                             client.get(&url).headers(headers).send()
                         },
                         RequestMethod::PostWithForm => {
-                            let text = req;
-                            
-                            let mut form = Vec::new();
-
-                            for line in text.lines() {
-                                let tokens = line.splitn(2,'=');                    
-                                let mut key_value: (&str, &str) = ("", "");
-
-                                for (i, item) in tokens.enumerate() {
-                                    match i {
-                                        0 => key_value.0 = item,
-                                        1 => key_value.1 = item,
-                                        _ => panic!("should never happen")
-                                    };
-                                }
-
-                                form.push(key_value);
-                            }
-                            
-                            client.post(&url).headers(headers).form(form.as_slice()).send()
+                            client.post(&url).headers(headers).form(actions::create_post_req_data(&req).as_slice()).send()
                         },
                         RequestMethod::PostRaw => {
                             client.post(&url).headers(headers).body(req).send()
@@ -256,18 +263,9 @@ pub fn build_ui(application: &gtk::Application) {
             
                     match result {
                         Ok(mut x) => {
-                            let response_text: String = x.text().unwrap_or(String::from(""));
-                            let mime: Mime = actions::detect_mime_type(x.headers());
-                            let extension: &'static str = actions::conv_mime_type_to_extension(&mime);
-
-                            let resp = Response{
-                                text: response_text, 
-                                mime_type: mime, 
-                                extension: extension, 
-                                highlight: highlight_override
-                            };
-                            
-                            thread_tx.send(Ok(resp)).unwrap();
+                            thread_tx.send(Ok(
+                                Response::from(&mut x).
+                                with_highlight_override(highlight_override))).unwrap();
                         },
                         Err(err) => {
                             thread_tx.send(Err(String::from("Request failed: ") + err.description())).unwrap();
@@ -295,20 +293,8 @@ fn receive() -> glib::Continue {
         if let Some((ref m_win, ref rx)) = *global.borrow() {
             if let Ok(result) = rx.try_recv() {
                 match result {
-                    Ok(resp) => {
-                        let highlight_override = resp.highlight.as_ref().map(String::as_str);
-                        let mime_str = &resp.mime_type.to_string();
-
-                        syntax_highlight::output_to_sourceview(
-                            &m_win, 
-                            &actions::beautify_response_text(resp.extension, &resp.text),
-                            match highlight_override {Some(x) => x, _ => resp.extension},
-                            match highlight_override {Some(_) => None, _ => Some(mime_str)}
-                        );
-                    },
-                    Err(err) => {
-                        gtk_ext::show_message(&err, &m_win.window);
-                    }
+                    Ok(resp) => actions::output_to_sourceview(&m_win, &resp),
+                    Err(err) => gtk_ext::show_message(&err, &m_win.window),
                 };
                 m_win.perform_btn.set_sensitive(true);
             }

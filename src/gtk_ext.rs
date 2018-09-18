@@ -1,4 +1,3 @@
-use text_out::{TextWidget};
 use gtk::{TextView, Entry, TextViewExt, EntryExt, TextBufferExt, DialogExt, WidgetExt, ContainerExt, Cast};
 use gtk;
 use sourceview;
@@ -59,6 +58,13 @@ macro_rules! impl_text {
             }
         })+
     }
+}
+
+pub trait TextWidget {
+    fn get_all_text(&self) -> String;
+    fn replace_all_text(&self, &str);
+    fn clear_all_text(&self);
+    fn append_text(&self, &str);
 }
 
 impl TextWidget for Entry {
