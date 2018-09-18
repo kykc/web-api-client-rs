@@ -46,7 +46,8 @@ struct Response
 {
     pub text: String,
     pub mime_type: Mime,
-    pub extension: &'static str
+    pub extension: &'static str,
+    pub highlight: Option<String>,
 }
 
 enum RequestMethod {
@@ -203,6 +204,11 @@ pub fn build_ui(application: &gtk::Application) {
     m_win.perform_btn.connect_clicked(gtk_clone!(m_win => move |_| {
         
         let headers = actions::populate_headers(&m_win.headers_mtx.get_all_text(), &m_win.window);
+        let highlight_override = match headers.get_raw("X-AU-Syntax").map(|x| x.one().map(|y| std::str::from_utf8(y))).flatten() {
+            Some(Ok(x)) => Some(String::from(x.trim())),
+            _ => None
+        };
+
         let request_method = m_win.get_request_method();
         let url = m_win.url_inp.get_all_text();
         let req = m_win.req_mtx.get_all_text();
@@ -249,7 +255,7 @@ pub fn build_ui(application: &gtk::Application) {
                     let mime: Mime = actions::detect_mime_type(x.headers());
                     let extension: &'static str = actions::conv_mime_type_to_extension(&mime);
 
-                    let resp = Response{text: response_text, mime_type: mime, extension: extension};
+                    let resp = Response{text: response_text, mime_type: mime, extension: extension, highlight: highlight_override};
                     thread_tx.send(Ok(resp)).unwrap();
                 },
                 Err(err) => {
@@ -276,11 +282,15 @@ fn receive() -> glib::Continue {
             if let Ok(result) = rx.try_recv() {
                 match result {
                     Ok(resp) => {
+                        let highlight_override = resp.highlight.as_ref().map(String::as_str);
+                        let mime_str = &resp.mime_type.to_string();
+
                         syntax_highlight::output_to_sourceview(
-                        &m_win, 
-                        &actions::beautify_response_text(resp.extension, &resp.text),
-                        resp.extension,
-                        Some(&resp.mime_type.to_string()));
+                            &m_win, 
+                            &actions::beautify_response_text(resp.extension, &resp.text),
+                            match highlight_override {Some(x) => x, _ => resp.extension},
+                            match highlight_override {Some(_) => None, _ => Some(mime_str)}
+                        );
                     },
                     Err(err) => {
                         gtk_ext::show_message(&err, &m_win.window);

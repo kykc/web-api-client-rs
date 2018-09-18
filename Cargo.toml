@@ -1,6 +1,6 @@
 [package]
 name = "web_api_client"
-version = "0.1.8"
+version = "0.1.9"
 authors = ["kykc"]
 build = "build.rs"
 license = "MIT"
