@@ -9,6 +9,7 @@ extern crate libxml;
 extern crate sourceview;
 extern crate dirs;
 extern crate glib;
+extern crate hyper;
 #[macro_use] extern crate serde_derive;
 
 use gio::prelude::*;
@@ -218,49 +219,62 @@ pub fn build_ui(application: &gtk::Application) {
         let worker = move || {
             let client = reqwest::Client::new();
             
-            let result = match request_method {
-                RequestMethod::GetWithUri => {
-                    client.get(&url).headers(headers).send()
-                },
-                RequestMethod::PostWithForm => {
-                    let text = req;
-                    
-                    let mut form = Vec::new();
+            let parsed_uri: Result<hyper::Uri, _> = url.parse();
 
-                    for line in text.lines() {
-                        let tokens = line.splitn(2,'=');                    
-                        let mut key_value: (&str, &str) = ("", "");
+            match parsed_uri {
+                Ok(_) => {
+                    let result = match request_method {
+                        RequestMethod::GetWithUri => {
+                            client.get(&url).headers(headers).send()
+                        },
+                        RequestMethod::PostWithForm => {
+                            let text = req;
+                            
+                            let mut form = Vec::new();
 
-                        for (i, item) in tokens.enumerate() {
-                            match i {
-                                0 => key_value.0 = item,
-                                1 => key_value.1 = item,
-                                _ => panic!("should never happen")
-                            };
+                            for line in text.lines() {
+                                let tokens = line.splitn(2,'=');                    
+                                let mut key_value: (&str, &str) = ("", "");
+
+                                for (i, item) in tokens.enumerate() {
+                                    match i {
+                                        0 => key_value.0 = item,
+                                        1 => key_value.1 = item,
+                                        _ => panic!("should never happen")
+                                    };
+                                }
+
+                                form.push(key_value);
+                            }
+                            
+                            client.post(&url).headers(headers).form(form.as_slice()).send()
+                        },
+                        RequestMethod::PostRaw => {
+                            client.post(&url).headers(headers).body(req).send()
                         }
+                    };
+            
+                    match result {
+                        Ok(mut x) => {
+                            let response_text: String = x.text().unwrap_or(String::from(""));
+                            let mime: Mime = actions::detect_mime_type(x.headers());
+                            let extension: &'static str = actions::conv_mime_type_to_extension(&mime);
 
-                        form.push(key_value);
-                    }
-                    
-                    client.post(&url).headers(headers).form(form.as_slice()).send()
+                            let resp = Response{
+                                text: response_text, 
+                                mime_type: mime, 
+                                extension: extension, 
+                                highlight: highlight_override
+                            };
+                            
+                            thread_tx.send(Ok(resp)).unwrap();
+                        },
+                        Err(err) => {
+                            thread_tx.send(Err(String::from("Request failed: ") + err.description())).unwrap();
+                        }
+                    };
                 },
-                RequestMethod::PostRaw => {
-                    client.post(&url).headers(headers).body(req).send()
-                }
-            };
-    
-            match result {
-                Ok(mut x) => {
-                    let response_text: String = x.text().unwrap_or(String::from(""));
-                    let mime: Mime = actions::detect_mime_type(x.headers());
-                    let extension: &'static str = actions::conv_mime_type_to_extension(&mime);
-
-                    let resp = Response{text: response_text, mime_type: mime, extension: extension, highlight: highlight_override};
-                    thread_tx.send(Ok(resp)).unwrap();
-                },
-                Err(err) => {
-                    thread_tx.send(Err(String::from("Request failed: ") + err.description())).unwrap();
-                }
+                Err(x) => thread_tx.send(Err(x.to_string())).unwrap()
             };
 
             glib::idle_add(receive);

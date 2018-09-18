@@ -1,6 +1,6 @@
 [package]
 name = "web_api_client"
-version = "0.1.9"
+version = "0.1.10"
 authors = ["kykc"]
 build = "build.rs"
 license = "MIT"
@@ -15,6 +15,7 @@ reqwest = "^0.8"
 libxml = "^0.2"
 dirs = "^1.0"
 glib = "^0.6"
+hyper = "^0.11"
 
 [dependencies.sourceview]
 features = ["v3_20"]
