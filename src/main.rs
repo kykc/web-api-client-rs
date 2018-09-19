@@ -55,19 +55,6 @@ enum RequestMethod {
     PostRaw = 3,
 }
 
-trait Flatten<T> {
-    fn flatten(self) -> Option<T>;
-}
-
-impl<T> Flatten<T> for Option<Option<T>> {
-    fn flatten(self) -> Option<T> {
-        match self {
-            None => None,
-            Some(v) => v,
-        }
-    }
-}
-
 impl<'a> From<&'a mut reqwest::Response> for Response {
     fn from(x: &'a mut reqwest::Response) -> Self {
         let response_text: String = x.text().unwrap_or(String::from(""));
@@ -177,8 +164,9 @@ impl MainWindow {
         let manager = sourceview::StyleSchemeManager::new();
 
         let executable_path = std::env::current_exe().ok().
-            map(|x| x.with_file_name("")).
-            map(|x| x.to_str().map(|y| String::from(y))).flatten();
+            map(|x| x.with_file_name("")).as_ref().
+            and_then(|x| x.to_str()).
+            map(|x| String::from(x));
 
         match executable_path {
             Some(p) => manager.append_search_path(&p),
@@ -229,12 +217,11 @@ pub fn build_ui(application: &gtk::Application) {
     m_win.perform_btn.connect_clicked(gtk_clone!(m_win => move |_| {
         
         let headers = actions::populate_headers(&m_win.headers_mtx.get_all_text(), &m_win.window);
-        let highlight_override = match headers.
+        let highlight_override = headers.
             get_raw("X-AU-Syntax").
-            map(|x| x.one().map(|y| std::str::from_utf8(y))).flatten() {
-                Some(Ok(x)) => Some(String::from(x.trim())),
-                _ => None
-        };
+            and_then(|x| x.one()).
+            and_then(|y| std::str::from_utf8(y).ok()).
+            map(|x| String::from(x.trim()));
 
         let request_method = m_win.get_request_method();
         let url = m_win.url_inp.get_all_text();
@@ -245,36 +232,32 @@ pub fn build_ui(application: &gtk::Application) {
         let worker = move || {
             let client = reqwest::Client::new();
             
-            let parsed_uri: Result<hyper::Uri, _> = url.parse();
+            let parsed_uri: Result<hyper::Uri, String> = url.parse::<hyper::Uri>().or_else(|e| Err(e.to_string()));
 
-            match parsed_uri {
-                Ok(_) => {
-                    let result = match request_method {
-                        RequestMethod::GetWithUri => {
-                            client.get(&url).headers(headers).send()
-                        },
-                        RequestMethod::PostWithForm => {
-                            client.post(&url).headers(headers).form(actions::create_post_req_data(&req).as_slice()).send()
-                        },
-                        RequestMethod::PostRaw => {
-                            client.post(&url).headers(headers).body(req).send()
-                        }
-                    };
+            let req_error_to_string = |err: reqwest::Error| Err(String::from("Request failed: ") + err.description());
+
+            let request_result = parsed_uri.and_then(|_| {
+                let sent = match request_method {
+                    RequestMethod::GetWithUri => {
+                        client.get(&url).headers(headers).send()
+                    },
+                    RequestMethod::PostWithForm => {
+                        client.post(&url).headers(headers).form(actions::create_post_req_data(&req).as_slice()).send()
+                    },
+                    RequestMethod::PostRaw => {
+                        client.post(&url).headers(headers).body(req).send()
+                    }
+                };
+
+                sent.or_else(req_error_to_string)
+            });
+
+            let result = request_result.map(|mut x| {
+                Response::from(&mut x).with_highlight_override(highlight_override)
+            });
+
+            thread_tx.send(result).unwrap();
             
-                    match result {
-                        Ok(mut x) => {
-                            thread_tx.send(Ok(
-                                Response::from(&mut x).
-                                with_highlight_override(highlight_override))).unwrap();
-                        },
-                        Err(err) => {
-                            thread_tx.send(Err(String::from("Request failed: ") + err.description())).unwrap();
-                        }
-                    };
-                },
-                Err(x) => thread_tx.send(Err(x.to_string())).unwrap()
-            };
-
             glib::idle_add(receive);
         };
 
