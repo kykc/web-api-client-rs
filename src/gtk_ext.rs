@@ -67,6 +67,18 @@ pub trait TextWidget {
     fn append_text(&self, &str);
 }
 
+pub fn apply_to_src_buf(view: &sourceview::View, worker: &Fn(&sourceview::Buffer)) -> bool {
+    let result = match view.get_buffer().as_ref().and_then(|x| x.downcast_ref::<sourceview::Buffer>()) {
+        Some(x) => { 
+            worker(x); 
+            true
+        },
+        None => false
+    };
+
+    result
+}
+
 impl TextWidget for Entry {
     fn get_all_text(&self) -> String {
         self.get_text().unwrap_or(String::from(""))

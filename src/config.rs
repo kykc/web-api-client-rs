@@ -20,17 +20,12 @@ pub fn write_config(config: &Config) {
     let display = config_path.display();
 
     let mut file = match File::create(&config_path) {
-        Err(why) => panic!("couldn't create {}: {}",
-                           display,
-                           why.description()),
+        Err(why) => panic!("couldn't create {}: {}", display, why.description()),
         Ok(file) => file,
     };
 
     match file.write_all(j.as_bytes()) {
-        Err(why) => {
-            panic!("couldn't write to {}: {}", display,
-                                               why.description())
-        },
+        Err(why) => {panic!("couldn't write to {}: {}", display, why.description())},
         Ok(_) => (),
     }
 }

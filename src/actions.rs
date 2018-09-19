@@ -9,6 +9,11 @@ use gtk_ext;
 use gtk_ext::{TextWidget};
 use sourceview::{BufferExt, LanguageManagerExt};
 use sourceview;
+use std;
+use hyper;
+use reqwest;
+use std::error::{Error};
+use glib;
 
 pub const CONTENT_TYPE_JSON: &'static str = "json";
 pub const CONTENT_TYPE_DEFAULT: &'static str = "";
@@ -119,4 +124,43 @@ pub fn create_post_req_data<'a>(text: &'a str) -> Vec<(&'a str, &'a str)> {
     }
 
     form
+}
+
+pub fn http_worker(
+    request_method: ::RequestMethod, 
+    url: &str, 
+    req: String, 
+    highlight_override: Option<String>,
+    headers: hyper::Headers,
+    tx: std::sync::mpsc::Sender<std::result::Result<::Response, std::string::String>>)
+{
+    let client = reqwest::Client::new();
+            
+    let parsed_uri: Result<hyper::Uri, String> = url.parse::<hyper::Uri>().or_else(|e| Err(e.to_string()));
+
+    let req_error_to_string = |err: reqwest::Error| Err(String::from("Request failed: ") + err.description());
+
+    let request_result = parsed_uri.and_then(|_| {
+        let sent = match request_method {
+            ::RequestMethod::GetWithUri => {
+                client.get(url).headers(headers).send()
+            },
+            ::RequestMethod::PostWithForm => {
+                client.post(url).headers(headers).form(create_post_req_data(&req).as_slice()).send()
+            },
+            ::RequestMethod::PostRaw => {
+                client.post(url).headers(headers).body(req).send()
+            }
+        };
+
+        sent.or_else(req_error_to_string)
+    });
+
+    let result = request_result.map(|mut x| {
+        ::Response::from(&mut x).with_highlight_override(highlight_override)
+    });
+
+    tx.send(result).unwrap();
+    
+    glib::idle_add(::receive);
 }

@@ -254,7 +254,7 @@
                 <property name="orientation">vertical</property>
                 <property name="wide_handle">True</property>
                 <child>
-                  <object class="GtkTextView" id="headersMtx">
+                  <object class="GtkSourceView" id="headersMtx">
                     <property name="width_request">400</property>
                     <property name="height_request">200</property>
                     <property name="visible">True</property>
@@ -262,6 +262,8 @@
                     <property name="left_margin">4</property>
                     <property name="right_margin">4</property>
                     <property name="monospace">True</property>
+                    <property name="tab_width">4</property>
+                    <property name="indent_width">4</property>
                   </object>
                   <packing>
                     <property name="resize">False</property>
@@ -269,12 +271,14 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkTextView" id="reqMtx">
+                  <object class="GtkSourceView" id="reqMtx">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="left_margin">4</property>
                     <property name="right_margin">4</property>
                     <property name="monospace">True</property>
+                    <property name="tab_width">4</property>
+                    <property name="indent_width">4</property>
                   </object>
                   <packing>
                     <property name="resize">True</property>
