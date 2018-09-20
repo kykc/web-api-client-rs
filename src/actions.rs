@@ -1,5 +1,5 @@
-use reqwest::header::{Headers, ContentType};
-use reqwest::mime::{Mime, TEXT_PLAIN, APPLICATION, JSON, TEXT, XML, HTML};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use mime::{Mime, TEXT_PLAIN, APPLICATION, JSON, TEXT, XML, HTML};
 use serde_json;
 use libxml;
 use libxml::bindings::xmlKeepBlanksDefault;
@@ -10,7 +10,6 @@ use gtk_ext::{TextWidget};
 use sourceview::{BufferExt, LanguageManagerExt};
 use sourceview;
 use std;
-use hyper;
 use reqwest;
 use std::error::{Error};
 use glib;
@@ -20,16 +19,24 @@ pub const CONTENT_TYPE_DEFAULT: &'static str = "";
 pub const CONTENT_TYPE_XML: &'static str = "xml";
 pub const CONTENT_TYPE_HTML: &'static str = "html";
 
-pub fn populate_headers<T: gtk::prelude::IsA<gtk::Window>>(text: &str, win: &T) -> Headers {
-    let mut headers = Headers::new();
+pub fn populate_headers<T: gtk::prelude::IsA<gtk::Window>>(text: &str, win: &T) -> HeaderMap {
+    let mut headers = HeaderMap::new();
 
     for line in text.lines() {
         let tokens = line.split(":").collect::<Vec<&str>>();
             
         match tokens.len() {
             2 => {
-                let name = String::from(tokens[0]);
-                headers.append_raw(name, String::from(tokens[1]).into_bytes());
+                let name = HeaderName::from_bytes(tokens[0].as_bytes());
+                let val = tokens[1].parse::<HeaderValue>();
+
+                match (name, val) {
+                    (Ok(x), Ok(y)) => { headers.append(x ,y); },
+                    _ => {
+                        let msg = String::from("Failed to parse header: ") + tokens[0];
+                        gtk_ext::show_message(&msg, win);
+                    }
+                };
             },
             _ => {
                 let msg = String::from("Invalid header omitted: ") + line;
@@ -41,11 +48,10 @@ pub fn populate_headers<T: gtk::prelude::IsA<gtk::Window>>(text: &str, win: &T) 
     headers
 }
 
-pub fn detect_mime_type(headers: &Headers) -> Mime {
-    match headers.get::<ContentType>() {
-        Some(x) => x.0.clone(),
-        None => TEXT_PLAIN
-    }
+pub fn detect_mime_type(headers: &HeaderMap) -> Mime {
+    headers.get("content-type").
+        and_then(|x| x.to_str().ok()).
+        and_then(|x| x.parse::<Mime>().ok()).unwrap_or(TEXT_PLAIN)
 }
 
 pub fn conv_mime_type_to_extension(mime: &Mime) -> &'static str {
@@ -131,32 +137,26 @@ pub fn http_worker(
     url: &str, 
     req: String, 
     highlight_override: Option<String>,
-    headers: hyper::Headers,
+    headers: HeaderMap,
     tx: std::sync::mpsc::Sender<std::result::Result<::Response, std::string::String>>)
 {
     let client = reqwest::Client::new();
             
-    let parsed_uri: Result<hyper::Uri, String> = url.parse::<hyper::Uri>().or_else(|e| Err(e.to_string()));
-
     let req_error_to_string = |err: reqwest::Error| Err(String::from("Request failed: ") + err.description());
 
-    let request_result = parsed_uri.and_then(|_| {
-        let sent = match request_method {
-            ::RequestMethod::GetWithUri => {
-                client.get(url).headers(headers).send()
-            },
-            ::RequestMethod::PostWithForm => {
-                client.post(url).headers(headers).form(create_post_req_data(&req).as_slice()).send()
-            },
-            ::RequestMethod::PostRaw => {
-                client.post(url).headers(headers).body(req).send()
-            }
-        };
+    let request_result = match request_method {
+        ::RequestMethod::GetWithUri => {
+            client.get(url).headers(headers).send()
+        },
+        ::RequestMethod::PostWithForm => {
+            client.post(url).headers(headers).form(create_post_req_data(&req).as_slice()).send()
+        },
+        ::RequestMethod::PostRaw => {
+            client.post(url).headers(headers).body(req).send()
+        }
+    };
 
-        sent.or_else(req_error_to_string)
-    });
-
-    let result = request_result.map(|mut x| {
+    let result = request_result.or_else(req_error_to_string).map(|mut x| {
         ::Response::from(&mut x).with_highlight_override(highlight_override)
     });
 

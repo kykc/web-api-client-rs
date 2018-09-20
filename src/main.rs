@@ -9,17 +9,18 @@ extern crate libxml;
 extern crate sourceview;
 extern crate dirs;
 extern crate glib;
-extern crate hyper;
+extern crate mime;
 #[macro_use] extern crate serde_derive;
 
 use gio::prelude::*;
 use gtk::prelude::*;
-use gtk::{Builder, Button, Entry, ApplicationWindow, Cast, StyleContextExt, ComboBoxText, MenuItemExt};
+use gtk::{Builder, Button, Entry, ApplicationWindow, Cast, StyleContextExt, ComboBoxText, MenuItemExt, SettingsExt};
 use std::sync::mpsc::{channel, Receiver};
 use std::cell::RefCell;
 
 use std::env::args;
-use reqwest::mime::{Mime};
+use mime::{Mime};
+
 
 use gtk_ext::{TextWidget};
 use sourceview::{StyleSchemeManagerExt, BufferExt, LanguageManagerExt};
@@ -200,6 +201,9 @@ impl MainWindow {
 }
 
 pub fn build_ui(application: &gtk::Application) {
+
+    gtk::Settings::get_default().unwrap().set_property_gtk_application_prefer_dark_theme(true);
+
     let config = config::get_current_config();
     let m_win = MainWindow::new(include_str!("main.glade"), &config, application);
     
@@ -226,8 +230,8 @@ pub fn build_ui(application: &gtk::Application) {
         m_win.perform_btn.set_sensitive(false);
         let headers = actions::populate_headers(&m_win.headers_mtx.get_all_text(), &m_win.window);
         let highlight_override = headers.
-            get_raw("X-AU-Syntax").
-            and_then(|x| x.one()).
+            get("X-AU-Syntax").
+            map(|x| x.as_bytes()).
             and_then(|y| std::str::from_utf8(y).ok()).
             map(|x| String::from(x.trim()));
 
