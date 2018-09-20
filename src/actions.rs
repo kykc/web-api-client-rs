@@ -4,11 +4,9 @@ use serde_json;
 use libxml;
 use libxml::bindings::xmlKeepBlanksDefault;
 use gtk;
-use gtk::{TextViewExt, Cast};
 use gtk_ext;
 use gtk_ext::{TextWidget};
 use sourceview::{BufferExt, LanguageManagerExt};
-use sourceview;
 use std;
 use reqwest;
 use std::error::{Error};
@@ -19,29 +17,34 @@ pub const CONTENT_TYPE_DEFAULT: &'static str = "";
 pub const CONTENT_TYPE_XML: &'static str = "xml";
 pub const CONTENT_TYPE_HTML: &'static str = "html";
 
+pub fn to_pair_if_both<T, U>(t: Option<T>, u: Option<U>) -> Option<(T, U)> {
+    match (t, u) {
+        (Some(x), Some(y)) => Some((x, y)),
+        _ => None
+    }
+}
+
 pub fn populate_headers<T: gtk::prelude::IsA<gtk::Window>>(text: &str, win: &T) -> HeaderMap {
     let mut headers = HeaderMap::new();
 
     for line in text.lines() {
         let tokens = line.split(":").collect::<Vec<&str>>();
-            
-        match tokens.len() {
-            2 => {
-                let name = HeaderName::from_bytes(tokens[0].as_bytes());
-                let val = tokens[1].parse::<HeaderValue>();
+        
+        let pair: Option<(&str, &str)> = match tokens.as_slice() {
+            &[a, b] => Some((a, b)),
+            _ => None
+        };
 
-                match (name, val) {
-                    (Ok(x), Ok(y)) => { headers.append(x ,y); },
-                    _ => {
-                        let msg = String::from("Failed to parse header: ") + tokens[0];
-                        gtk_ext::show_message(&msg, win);
-                    }
-                };
-            },
-            _ => {
-                let msg = String::from("Invalid header omitted: ") + line;
-                gtk_ext::show_message(&msg, win);
-            }
+        let parsed_pair = pair.and_then(|x| {
+            let name = HeaderName::from_bytes(x.0.as_bytes()).ok();
+            let val = x.1.parse::<HeaderValue>().ok();
+
+            to_pair_if_both(name, val)
+        });
+
+        match parsed_pair {
+            Some(p) => { headers.append(p.0, p.1); },
+            None => { gtk_ext::show_message(&(String::from("Failed to parse header - ") + line), win); }
         };
     }
 
@@ -106,7 +109,7 @@ pub fn output_to_sourceview(target: &::MainWindow, resp: &::Response) {
 
     target.lang_manager.
         guess_language(Some((String::from("dummy.") + extension).as_str()), content_type).
-        map(|lang| target.resp_mtx.get_buffer().unwrap().downcast_ref::<sourceview::Buffer>().unwrap().set_language(&lang));
+        map(|lang| gtk_ext::apply_to_src_buf(&target.resp_mtx, &|x| x.set_language(&lang)));
     
     target.resp_mtx.replace_all_text(&text);
 }
