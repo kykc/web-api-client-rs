@@ -23,38 +23,28 @@ macro_rules! impl_text {
     ($($t:ty),+) => {
         $(impl TextWidget for $t {
             fn get_all_text(&self) -> String {
-                match self.get_buffer() {
-                    Some(buf) => buf.get_text(&mut buf.get_start_iter(), &mut buf.get_end_iter(), true).unwrap_or(String::from("")),
-                    _ => String::from("")
-                }
+                self.get_buffer().
+                    and_then(|buf| buf.get_text(&mut buf.get_start_iter(), &mut buf.get_end_iter(), true)).
+                    unwrap_or(String::from(""))
             }
 
             fn replace_all_text(&self, new_text: &str) {
-                match self.get_buffer() {
-                    Some(buf) => {
-                        buf.delete(&mut buf.get_start_iter(), &mut buf.get_end_iter());
-                        buf.insert(&mut buf.get_start_iter(), new_text);
-                    },
-                    _ => ()
-                }
+                self.get_buffer().map(|buf| {
+                    buf.delete(&mut buf.get_start_iter(), &mut buf.get_end_iter());
+                    buf.insert(&mut buf.get_start_iter(), new_text);
+                });
             }
 
             fn clear_all_text(&self) {
-                match self.get_buffer() {
-                    Some(buf) => {
-                        buf.delete(&mut buf.get_start_iter(), &mut buf.get_end_iter());
-                    },
-                    _ => ()
-                }
+                self.get_buffer().map(|buf| {
+                    buf.delete(&mut buf.get_start_iter(), &mut buf.get_end_iter());
+                });
             }
 
             fn append_text(&self, add_text: &str) {
-                match self.get_buffer() {
-                    Some(buf) => {
-                        buf.insert(&mut buf.get_end_iter(), add_text);
-                    },
-                    _ => ()
-                }
+                self.get_buffer().map(|buf| {
+                    buf.insert(&mut buf.get_end_iter(), add_text);
+                });
             }
         })+
     }
@@ -99,7 +89,13 @@ impl TextWidget for Entry {
 }
 
 pub fn show_message<T: gtk::prelude::IsA<gtk::Window>>(msg: &str, window: &T) {
-    let dialog = gtk::MessageDialog::new(Some(window), gtk::DialogFlags::MODAL, gtk::MessageType::Warning, gtk::ButtonsType::Ok, msg);
+    let dialog = gtk::MessageDialog::new(
+        Some(window), 
+        gtk::DialogFlags::MODAL, 
+        gtk::MessageType::Warning, 
+        gtk::ButtonsType::Ok, msg
+    );
+
     dialog.connect_response(|dialog, _| dialog.destroy());
     dialog.run();
 }
@@ -109,10 +105,7 @@ pub fn traverse_gtk_container(container: &gtk::Container, worker: &Fn(&gtk::Cont
     
     for widget in container.get_children() {
         let sub_container: Option<&gtk::Container> = widget.downcast_ref();
-        match sub_container {
-            Some(sub) => traverse_gtk_container(&sub, worker),
-            None => ()
-        };
+        sub_container.map(|sub| traverse_gtk_container(&sub, worker));
     }
 }
 
