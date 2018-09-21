@@ -243,27 +243,36 @@
           </packing>
         </child>
         <child>
-          <object class="GtkPaned">
+          <object class="GtkPaned" id="panedParent">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="wide_handle">True</property>
             <child>
-              <object class="GtkPaned">
+              <object class="GtkPaned" id="panedTopLeft">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="orientation">vertical</property>
                 <property name="wide_handle">True</property>
                 <child>
-                  <object class="GtkSourceView" id="headersMtx">
+                  <object class="GtkScrolledWindow" id="headersScroll">
                     <property name="width_request">400</property>
                     <property name="height_request">200</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="left_margin">4</property>
-                    <property name="right_margin">4</property>
-                    <property name="monospace">True</property>
-                    <property name="tab_width">4</property>
-                    <property name="indent_width">4</property>
+                    <property name="shadow_type">in</property>
+                    <child>
+                      <object class="GtkSourceView" id="headersMtx">
+                        <property name="width_request">400</property>
+                        <property name="height_request">200</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="left_margin">4</property>
+                        <property name="right_margin">4</property>
+                        <property name="monospace">True</property>
+                        <property name="tab_width">4</property>
+                        <property name="indent_width">4</property>
+                      </object>
+                    </child>
                   </object>
                   <packing>
                     <property name="resize">False</property>
@@ -271,14 +280,22 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkSourceView" id="reqMtx">
+                  <object class="GtkScrolledWindow">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="left_margin">4</property>
-                    <property name="right_margin">4</property>
-                    <property name="monospace">True</property>
-                    <property name="tab_width">4</property>
-                    <property name="indent_width">4</property>
+                    <property name="shadow_type">in</property>
+                    <child>
+                      <object class="GtkSourceView" id="reqMtx">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="left_margin">4</property>
+                        <property name="right_margin">4</property>
+                        <property name="monospace">True</property>
+                        <property name="show_line_numbers">True</property>
+                        <property name="tab_width">4</property>
+                        <property name="indent_width">4</property>
+                      </object>
+                    </child>
                   </object>
                   <packing>
                     <property name="resize">True</property>
@@ -292,60 +309,99 @@
               </packing>
             </child>
             <child>
-              <object class="GtkBox">
+              <object class="GtkPaned" id="panedTopRight">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
+                <property name="can_focus">True</property>
                 <property name="orientation">vertical</property>
+                <property name="wide_handle">True</property>
                 <child>
-                  <object class="GtkSearchBar" id="searchBar">
-                    <property name="name">searchBar</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="show_close_button">True</property>
-                    <child>
-                      <object class="GtkSearchEntry" id="searchInp">
-                        <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="hexpand">True</property>
-                        <property name="primary_icon_name">edit-find-symbolic</property>
-                        <property name="primary_icon_activatable">False</property>
-                        <property name="primary_icon_sensitive">False</property>
-                      </object>
-                    </child>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="pack_type">end</property>
-                    <property name="position">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkScrolledWindow">
+                  <object class="GtkScrolledWindow" id="respHeadersScroll">
+                    <property name="height_request">200</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="shadow_type">in</property>
                     <child>
-                      <object class="GtkSourceView" id="respMtx">
+                      <object class="GtkSourceView" id="respHeadersMtx">
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="left_margin">4</property>
                         <property name="right_margin">4</property>
                         <property name="monospace">True</property>
-                        <property name="show_line_numbers">True</property>
                         <property name="tab_width">4</property>
                         <property name="indent_width">4</property>
-                        <property name="right_margin_position">120</property>
-                        <style>
-                          <class name="au-code-view"/>
-                        </style>
+                        <property name="auto_indent">True</property>
+                        <property name="insert_spaces_instead_of_tabs">True</property>
                       </object>
                     </child>
                   </object>
                   <packing>
-                    <property name="expand">True</property>
-                    <property name="fill">True</property>
-                    <property name="position">1</property>
+                    <property name="resize">False</property>
+                    <property name="shrink">True</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkBox">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="orientation">vertical</property>
+                    <child>
+                      <object class="GtkSearchBar" id="searchBar">
+                        <property name="name">searchBar</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="hexpand">True</property>
+                        <property name="show_close_button">True</property>
+                        <child>
+                          <object class="GtkSearchEntry" id="searchInp">
+                            <property name="width_request">350</property>
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="primary_icon_name">edit-find-symbolic</property>
+                            <property name="primary_icon_activatable">False</property>
+                            <property name="primary_icon_sensitive">False</property>
+                          </object>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="pack_type">end</property>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkScrolledWindow">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="shadow_type">in</property>
+                        <child>
+                          <object class="GtkSourceView" id="respMtx">
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="margin_top">3</property>
+                            <property name="left_margin">4</property>
+                            <property name="right_margin">4</property>
+                            <property name="monospace">True</property>
+                            <property name="show_line_numbers">True</property>
+                            <property name="tab_width">4</property>
+                            <property name="indent_width">4</property>
+                            <property name="right_margin_position">120</property>
+                            <style>
+                              <class name="au-code-view"/>
+                            </style>
+                          </object>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="expand">True</property>
+                        <property name="fill">True</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="resize">True</property>
+                    <property name="shrink">True</property>
                   </packing>
                 </child>
               </object>

@@ -10,7 +10,7 @@ extern crate sourceview;
 extern crate dirs;
 extern crate glib;
 extern crate mime;
-#[macro_use] extern crate serde_derive;
+extern crate rusqlite;
 
 use gio::prelude::*;
 use gtk::prelude::*;
@@ -31,6 +31,7 @@ mod actions;
 
 #[derive(Clone)]
 pub struct MainWindow {
+    pub builder: Builder,
     pub window: ApplicationWindow,
     pub perform_btn: Button,
     pub url_inp: Entry,
@@ -38,6 +39,7 @@ pub struct MainWindow {
     pub headers_mtx: sourceview::View,
     pub method_sel: ComboBoxText,
     pub req_mtx: sourceview::View,
+    pub resp_headers_mtx: sourceview::View,
     pub lang_manager: sourceview::LanguageManager,
 }
 
@@ -47,6 +49,7 @@ pub struct Response
     pub mime_type: Mime,
     pub extension: &'static str,
     pub highlight: Option<String>,
+    pub headers: reqwest::header::HeaderMap,
 }
 
 pub enum RequestMethod {
@@ -65,7 +68,8 @@ impl<'a> From<&'a mut reqwest::Response> for Response {
             text: response_text, 
             mime_type: mime, 
             extension: extension, 
-            highlight: None
+            highlight: None,
+            headers: x.headers().clone(),
         }
     }
 }
@@ -76,7 +80,8 @@ impl Response {
             text: self.text,
             mime_type: self.mime_type,
             extension: self.extension,
-            highlight: highlight
+            highlight: highlight,
+            headers: self.headers,
         }
     }
 }
@@ -101,7 +106,84 @@ impl MainWindow {
         }
     }
 
-    fn new(glade: &str, config: &config::Config, application: &gtk::Application) -> MainWindow {
+    pub fn set_vertical_offset(&self, x: i32) {
+        let paned_vertical: gtk::Paned = self.builder.get_object("panedParent").expect("panedParent not found");
+        paned_vertical.set_position(x);
+    }
+
+    pub fn get_vertical_offset(&self) -> i32 {
+        let paned_vertical: gtk::Paned = self.builder.get_object("panedParent").expect("panedParent not found");
+        paned_vertical.get_position()
+    }
+
+    pub fn set_paned_top_left(&self, x: i32) {
+        let paned_top_left: gtk::Paned = self.builder.get_object("panedTopLeft").expect("panedTopLeft not found");
+        paned_top_left.set_position(x);
+    }
+
+    pub fn get_paned_top_left(&self) -> i32 {
+        let paned_top_left: gtk::Paned = self.builder.get_object("panedTopLeft").expect("panedTopLeft not found");
+        paned_top_left.get_position()
+    }
+
+    pub fn set_paned_top_right(&self, x: i32) {
+        let paned_top_right: gtk::Paned = self.builder.get_object("panedTopRight").expect("panedTopRight not found");
+        paned_top_right.set_position(x);
+    }
+
+    pub fn get_paned_top_right(&self) -> i32 {
+        let paned_top_right: gtk::Paned = self.builder.get_object("panedTopRight").expect("panedTopRight not found");
+        paned_top_right.get_position()
+    }
+
+    pub fn get_req_headers(&self) -> String {
+        self.headers_mtx.get_all_text()
+    }
+
+    pub fn get_req_body(&self) -> String {
+        self.req_mtx.get_all_text()
+    }
+
+    pub fn get_rs_headers(&self) -> String {
+        self.resp_headers_mtx.get_all_text()
+    }
+
+    pub fn get_rs_body(&self) -> String {
+        self.resp_mtx.get_all_text()
+    }
+
+    pub fn set_req_headers(&self, x: &str) {
+        self.headers_mtx.replace_all_text(x);
+    }
+
+    pub fn set_req_body(&self, x: &str) {
+        self.req_mtx.replace_all_text(x);
+    }
+
+    pub fn set_rs_headers(&self, x: &str) {
+        self.resp_headers_mtx.replace_all_text(x);
+    }
+
+    pub fn set_rs_body(&self, x: &str) {
+        self.resp_mtx.replace_all_text(x);
+    }
+
+    pub fn get_url(&self) -> String {
+        self.url_inp.get_all_text()
+    }
+
+    pub fn set_url(&self, x: &str) {
+        self.url_inp.replace_all_text(x);
+    }
+
+    pub fn set_window_size(&self, w: i32, h: i32) {
+        let mut alloc = self.window.get_allocation();
+        alloc.width = w;
+        alloc.height = h;
+        self.window.set_allocation(&alloc);
+    }
+
+    fn new(glade: &str, application: &gtk::Application) -> MainWindow {
         let builder = Builder::new_from_string(glade);
 
         let window: ApplicationWindow = builder.get_object("window1").expect("Couldn't get window1");
@@ -110,25 +192,13 @@ impl MainWindow {
         let resp_mtx: sourceview::View = builder.get_object("respMtx").expect("respMtx not found");
         let req_mtx: sourceview::View = builder.get_object("reqMtx").expect("reqMtx not found");
         let headers_mtx: sourceview::View = builder.get_object("headersMtx").expect("headersMtx not found");
+        let resp_headers_mtx: sourceview::View = builder.get_object("respHeadersMtx").expect("respHeadersMtx not found");
         let method_sel: ComboBoxText = builder.get_object("methodSel").expect("methodSel not found");
-        let mut window_rect = window.get_allocation();
         let search_bar: gtk::SearchBar = builder.get_object("searchBar").expect("searchBar not found");
         let search_inp: gtk::SearchEntry = builder.get_object("searchInp").expect("searchInp not found");
         let find_acm: gtk::ImageMenuItem = builder.get_object("findAcm").expect("findAcm not found");
 
         MainWindow::apply_css(&window);
-
-        window_rect.width = config.width as i32;
-        window_rect.height = config.height as i32;
-        window.set_allocation(&window_rect);
-        url_inp.set_text(&config.url);
-        headers_mtx.replace_all_text(&config.headers);
-
-        match config.request {
-            Some(ref text) => req_mtx.replace_all_text(&text),
-            None => ()
-        };
-        
         window.set_application(application);
 
         find_acm.connect_activate(gtk_clone!(search_bar => move |_| {
@@ -181,13 +251,18 @@ impl MainWindow {
                 gtk_ext::apply_to_src_buf(&resp_mtx, &|x| x.set_style_scheme(&theme));
                 gtk_ext::apply_to_src_buf(&headers_mtx, &|x| x.set_style_scheme(&theme));
                 gtk_ext::apply_to_src_buf(&req_mtx, &|x| x.set_style_scheme(&theme));
+                gtk_ext::apply_to_src_buf(&resp_headers_mtx, &|x| x.set_style_scheme(&theme));
             });
 
         lang_manager.
             guess_language(Some("headers.ini"), None).
-            map(|lang| gtk_ext::apply_to_src_buf(&headers_mtx, &|x| x.set_language(&lang)));
+            map(|lang| {
+                gtk_ext::apply_to_src_buf(&headers_mtx, &|x| x.set_language(&lang));
+                gtk_ext::apply_to_src_buf(&resp_headers_mtx, &|x| x.set_language(&lang));
+            });
 
         MainWindow {
+            builder: builder,
             window: window, 
             perform_btn: perform_btn, 
             url_inp: url_inp, 
@@ -195,6 +270,7 @@ impl MainWindow {
             headers_mtx: headers_mtx,
             method_sel: method_sel,
             req_mtx: req_mtx,
+            resp_headers_mtx: resp_headers_mtx,
             lang_manager: lang_manager,
         }
     }
@@ -204,19 +280,15 @@ pub fn build_ui(application: &gtk::Application) {
 
     gtk::Settings::get_default().unwrap().set_property_gtk_application_prefer_dark_theme(true);
 
-    let config = config::get_current_config();
-    let m_win = MainWindow::new(include_str!("main.glade"), &config, application);
+    let m_win = MainWindow::new(include_str!("main.glade"), application);
     
     m_win.window.connect_delete_event(gtk_clone!(m_win => move |_, _| {
-        let new_config = config::Config {
-            url: m_win.url_inp.get_all_text(), 
-            height: m_win.window.get_allocated_height() as u32, 
-            width: m_win.window.get_allocated_width() as u32,
-            headers: m_win.headers_mtx.get_all_text(),
-            request: Some(m_win.req_mtx.get_all_text()),
-        };
-
-        config::write_config(&new_config);
+        CONFIG.with(|conf| {
+            let mut state = conf.borrow_mut();
+            state.update_from_window(&m_win);
+            state.write_to_db(&config::connect_to_state());
+        });
+        
         m_win.window.destroy();
         Inhibit(false)
     }));
@@ -250,11 +322,17 @@ pub fn build_ui(application: &gtk::Application) {
         ));
     }));
 
+    CONFIG.with(|conf| {
+        conf.borrow().update_to_window(&m_win);
+    });
+
     m_win.window.show_all();
 }
 
 thread_local!(
-    static GLOBAL: RefCell<Option<(MainWindow, Receiver<Result<Response, String>>)>> = RefCell::new(None)
+    static GLOBAL: RefCell<Option<(MainWindow, Receiver<Result<Response, String>>)>> = RefCell::new(None);
+    static CONFIG: RefCell<config::WindowState> = RefCell::new(
+        config::WindowState::read_from_db(&config::connect_to_state()));
 );
 
 pub fn receive() -> glib::Continue {

@@ -107,11 +107,39 @@ pub fn output_to_sourceview(target: &::MainWindow, resp: &::Response) {
     let extension = match highlight_override {Some(x) => x, _ => resp.extension};
     let content_type = match highlight_override {Some(_) => None, _ => Some(mime_str.as_str())};
 
-    target.lang_manager.
-        guess_language(Some((String::from("dummy.") + extension).as_str()), content_type).
-        map(|lang| gtk_ext::apply_to_src_buf(&target.resp_mtx, &|x| x.set_language(&lang)));
-    
     target.resp_mtx.replace_all_text(&text);
+
+    let mut headers_text = String::new();
+
+    for ref header in &resp.headers {
+        headers_text += header.0.as_str();
+        headers_text += ": ";
+        headers_text += header.1.to_str().unwrap();
+        headers_text += "\n";
+    }
+
+    target.resp_headers_mtx.replace_all_text(&headers_text);
+
+    ::CONFIG.with(|conf| {
+        let mut state = conf.borrow_mut();
+        state.current_extension = Some(String::from(extension));
+        state.current_mime = content_type.map(|x| String::from(x));
+    });
+
+    update_resp_body_highlighting(target);
+}
+
+pub fn update_resp_body_highlighting(target: &::MainWindow) {
+    ::CONFIG.with(|conf| {
+        let state = conf.borrow();
+
+        let extension = state.current_extension.as_ref().map(|x| x.as_str()).unwrap_or("text/plain");
+        let mime_str = state.current_mime.as_ref().map(|x| x.as_str());
+
+        target.lang_manager.
+            guess_language(Some((String::from("dummy.") + extension).as_str()), mime_str).
+            map(|lang| gtk_ext::apply_to_src_buf(&target.resp_mtx, &|x| x.set_language(&lang)));
+    });
 }
 
 pub fn create_post_req_data<'a>(text: &'a str) -> Vec<(&'a str, &'a str)> {
