@@ -18,9 +18,9 @@ pub fn connect_to_state() -> Connection {
     let connection = Connection::open(get_state_path()).expect("Cannot connect to database");
 
     connection.execute("CREATE TABLE state_values (
-                  option_key            TEXT NOT NULL UNIQUE,
-                  option_value          TEXT NOT NULL
-                  )", &[]);
+        option_key TEXT NOT NULL UNIQUE,
+        option_value TEXT NOT NULL
+        )", &[]);
 
     connection
 }
@@ -39,6 +39,7 @@ pub struct WindowState {
     pub current_url: String,
     pub current_extension: Option<String>,
     pub current_mime: Option<String>,
+    pub request_method: i32,
 }
 
 #[derive(Debug, Clone)]
@@ -59,6 +60,7 @@ pub const RS_BODY: &'static str = "rs_body";
 pub const CURRENT_URL: &'static str = "current_url";
 pub const CURRENT_EXTENSION: &'static str = "current_extension";
 pub const CURRENT_MIME: &'static str = "current_mime";
+pub const REQUEST_METHOD: &'static str = "request_method";
 
 impl WindowState {
     pub fn read_from_db(connection: &Connection) -> Self {
@@ -92,6 +94,7 @@ impl WindowState {
             current_url: WindowState::parse_str_or(&dict, CURRENT_URL, "https://api.github.com/users/kykc/repos"),
             current_extension: WindowState::parse_option_str(&dict, CURRENT_EXTENSION),
             current_mime: WindowState::parse_option_str(&dict, CURRENT_MIME),
+            request_method: WindowState::parse_option(&dict, REQUEST_METHOD, ::RequestMethod::GetWithUri as i32),
         }
     }
 
@@ -106,6 +109,7 @@ impl WindowState {
         self.rs_headers = m_win.get_rs_headers();
         self.rs_body = m_win.get_rs_body();
         self.current_url = m_win.get_url();
+        self.request_method = m_win.get_request_method() as i32;
     }
 
     pub fn update_to_window(&self, m_win: &::MainWindow) {
@@ -118,7 +122,16 @@ impl WindowState {
         m_win.set_rs_headers(&self.rs_headers);
         m_win.set_rs_body(&self.rs_body);
         m_win.set_url(&self.current_url);
+        m_win.set_request_method(WindowState::to_req_method(self.request_method));
         actions::update_resp_body_highlighting(&m_win);
+    }
+
+    pub fn to_req_method(i: i32) -> ::RequestMethod {
+        match i {
+            2 => ::RequestMethod::PostWithForm,
+            3 => ::RequestMethod::PostRaw,
+            _ => ::RequestMethod::GetWithUri,
+        }
     }
 
     #[allow(unused_must_use)]
@@ -138,6 +151,7 @@ impl WindowState {
         connection.execute(q, &[&CURRENT_URL, &self.current_url.as_str()]);
         connection.execute(q, &[&CURRENT_EXTENSION, &WindowState::optional_string_to_db(&self.current_extension)]);
         connection.execute(q, &[&CURRENT_MIME, &WindowState::optional_string_to_db(&self.current_mime)]);
+        connection.execute(q, &[&REQUEST_METHOD, &self.request_method]);
     }
 
     fn optional_string_to_db(opt: &Option<String>) -> String {

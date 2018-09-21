@@ -99,11 +99,15 @@ impl MainWindow {
     }
 
     fn get_request_method(&self) -> RequestMethod {
-        match self.method_sel.get_active_id().unwrap_or("".to_owned()).parse::<i32>().unwrap_or(1) {
-            2 => RequestMethod::PostWithForm,
-            3 => RequestMethod::PostRaw,
-            _ => RequestMethod::GetWithUri
-        }
+        config::WindowState::to_req_method(MainWindow::get_sel_int_id(&self.method_sel, 1))
+    }
+
+    fn get_sel_int_id(sel: &gtk::ComboBoxText, def: i32) -> i32 {
+        sel.get_active_id().unwrap_or("".to_owned()).parse::<i32>().unwrap_or(def)
+    }
+
+    fn set_request_method(&self, method: RequestMethod) {
+        self.method_sel.set_active_id((method as i32).to_string().as_str());
     }
 
     pub fn set_vertical_offset(&self, x: i32) {
@@ -204,7 +208,7 @@ impl MainWindow {
         find_acm.connect_activate(gtk_clone!(search_bar => move |_| {
             search_bar.set_search_mode(!search_bar.get_search_mode());
         }));
-
+        
         search_inp.connect_activate(move |search_inp| {
             search_inp.emit_next_match();
         });
