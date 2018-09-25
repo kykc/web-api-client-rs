@@ -1,8 +1,6 @@
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use mime::{Mime, TEXT_PLAIN, APPLICATION, JSON, TEXT, XML, HTML};
 use serde_json;
-use libxml;
-use libxml::bindings::xmlKeepBlanksDefault;
 use gtk;
 use gtk_ext;
 use gtk_ext::{TextWidget};
@@ -11,6 +9,8 @@ use std;
 use reqwest;
 use std::error::{Error};
 use glib;
+use ::xml;
+use ::html;
 
 pub const CONTENT_TYPE_JSON: &'static str = "json";
 pub const CONTENT_TYPE_DEFAULT: &'static str = "";
@@ -82,20 +82,11 @@ pub fn beautify_response_text(extension: &'static str, text: &str) -> String {
             }
         },
         CONTENT_TYPE_XML => {
-            unsafe {xmlKeepBlanksDefault(0); }
-            let parser = libxml::parser::Parser::default();
-            match parser.parse_string(&text) {
-                Ok(doc) => doc.to_string(true),
-                Err(_) => text.to_owned()
-            }
+            xml::beautify_xml(&text).unwrap_or(text.to_string())
         },
         CONTENT_TYPE_HTML => {
-            let parser = libxml::parser::Parser::default_html();
-            match parser.parse_string(&text) {
-                Ok(doc) => if parser.is_well_formed_html(text) { doc.to_string(true) } else { text.to_owned() },
-                Err(_) => text.to_owned()
-            }
-        }
+            html::beautify_html(&text)
+        },
         _ => text.to_owned()
     }
 }

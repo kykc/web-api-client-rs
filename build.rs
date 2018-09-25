@@ -147,7 +147,7 @@ fn main() {
 const WORKAROUND_C: &'static str = r#"/* workaround.c */
 #define _CRTBLD
 #include <stdio.h>
-int xmlIndentTreeOutput = 0; // Fix for borken msys2 libxml2, should be removed when fix arrives from their side
+
 FILE *__cdecl __acrt_iob_func(unsigned index)
 {
     return &(__iob_func()[index]);

@@ -1,6 +1,6 @@
 [package]
 name = "web_api_client"
-version = "0.1.13"
+version = "0.1.14"
 authors = ["kykc"]
 build = "build.rs"
 license = "MIT"
@@ -12,11 +12,12 @@ gdk = "^0.9"
 serde = "^1.0"
 serde_derive = "^1.0"
 reqwest = "^0.9"
-libxml = "^0.2"
 dirs = "^1.0"
 glib = "^0.6"
 mime = "^0.3"
 rusqlite = "^0.14"
+quick-xml = "^0.12"
+html5ever = "^0.22"
 
 [dependencies.sourceview]
 features = ["v3_20"]

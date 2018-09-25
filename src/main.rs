@@ -5,12 +5,13 @@ extern crate gtk;
 extern crate serde_json;
 extern crate reqwest;
 extern crate gdk;
-extern crate libxml;
 extern crate sourceview;
 extern crate dirs;
 extern crate glib;
 extern crate mime;
 extern crate rusqlite;
+extern crate quick_xml;
+extern crate html5ever;
 
 use gio::prelude::*;
 use gtk::prelude::*;
@@ -28,6 +29,8 @@ use sourceview::{StyleSchemeManagerExt, BufferExt, LanguageManagerExt};
 mod config;
 #[macro_use] mod gtk_ext;
 mod actions;
+mod xml;
+mod html;
 
 #[derive(Clone)]
 pub struct MainWindow {
