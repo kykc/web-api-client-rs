@@ -122,11 +122,11 @@ impl WindowState {
         m_win.set_rs_headers(&self.rs_headers);
         m_win.set_rs_body(&self.rs_body);
         m_win.set_url(&self.current_url);
-        m_win.set_request_method(WindowState::to_req_method(self.request_method));
+        m_win.set_request_method(WindowState::conv_to_req_method(self.request_method));
         actions::update_resp_body_highlighting(&m_win);
     }
 
-    pub fn to_req_method(i: i32) -> ::RequestMethod {
+    pub fn conv_to_req_method(i: i32) -> ::RequestMethod {
         match i {
             2 => ::RequestMethod::PostWithForm,
             3 => ::RequestMethod::PostRaw,

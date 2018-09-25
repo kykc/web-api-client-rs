@@ -133,7 +133,7 @@ pub fn update_resp_body_highlighting(target: &::MainWindow) {
     });
 }
 
-pub fn create_post_req_data<'a>(text: &'a str) -> Vec<(&'a str, &'a str)> {
+pub fn create_post_req_data(text: &str) -> Vec<(&str, &str)> {
     let mut form = Vec::new();
 
     for line in text.lines() {

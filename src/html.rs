@@ -60,7 +60,8 @@ fn walk(prefix: &str, handle: Handle, mut buffer: &mut String) {
             let parent_name = taken_parent.as_ref().
                 and_then(|weak_ptr|weak_ptr.upgrade()).
                 and_then(|x| match &*x {
-                    Node {data: NodeData::Element {ref name, ..}, ..} => Some(String::from(&*name.local).to_lowercase()),
+                    Node {data: NodeData::Element {ref name, ..}, ..} =>
+                        Some(String::from(&*name.local).to_lowercase()),
                     _ => None
             }).unwrap_or(String::new());
 

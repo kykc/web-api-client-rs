@@ -52,9 +52,9 @@ macro_rules! impl_text {
 
 pub trait TextWidget {
     fn get_all_text(&self) -> String;
-    fn replace_all_text(&self, &str);
+    fn replace_all_text(&self, text: &str);
     fn clear_all_text(&self);
-    fn append_text(&self, &str);
+    fn append_text(&self, text: &str);
 }
 
 pub fn apply_to_src_buf(view: &sourceview::View, worker: &Fn(&sourceview::Buffer)) -> bool {

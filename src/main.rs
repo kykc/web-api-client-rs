@@ -70,7 +70,7 @@ impl<'a> From<&'a mut reqwest::Response> for Response {
         Response {
             text: response_text, 
             mime_type: mime, 
-            extension: extension, 
+            extension,
             highlight: None,
             headers: x.headers().clone(),
         }
@@ -83,7 +83,7 @@ impl Response {
             text: self.text,
             mime_type: self.mime_type,
             extension: self.extension,
-            highlight: highlight,
+            highlight,
             headers: self.headers,
         }
     }
@@ -102,7 +102,7 @@ impl MainWindow {
     }
 
     fn get_request_method(&self) -> RequestMethod {
-        config::WindowState::to_req_method(MainWindow::get_sel_int_id(&self.method_sel, 1))
+        config::WindowState::conv_to_req_method(MainWindow::get_sel_int_id(&self.method_sel, 1))
     }
 
     fn get_sel_int_id(sel: &gtk::ComboBoxText, def: i32) -> i32 {
@@ -115,32 +115,32 @@ impl MainWindow {
 
     pub fn set_vertical_offset(&self, x: i32) {
         let paned_vertical: gtk::Paned = self.builder.get_object("panedParent").expect("panedParent not found");
-        paned_vertical.set_position(x);
+        gtk::PanedExt::set_position(&paned_vertical, x);
     }
 
     pub fn get_vertical_offset(&self) -> i32 {
         let paned_vertical: gtk::Paned = self.builder.get_object("panedParent").expect("panedParent not found");
-        paned_vertical.get_position()
+        gtk::PanedExt::get_position(&paned_vertical)
     }
 
     pub fn set_paned_top_left(&self, x: i32) {
         let paned_top_left: gtk::Paned = self.builder.get_object("panedTopLeft").expect("panedTopLeft not found");
-        paned_top_left.set_position(x);
+        gtk::PanedExt::set_position(&paned_top_left, x);
     }
 
     pub fn get_paned_top_left(&self) -> i32 {
         let paned_top_left: gtk::Paned = self.builder.get_object("panedTopLeft").expect("panedTopLeft not found");
-        paned_top_left.get_position()
+        gtk::PanedExt::get_position(&paned_top_left)
     }
 
     pub fn set_paned_top_right(&self, x: i32) {
         let paned_top_right: gtk::Paned = self.builder.get_object("panedTopRight").expect("panedTopRight not found");
-        paned_top_right.set_position(x);
+        gtk::PanedExt::set_position(&paned_top_right, x);
     }
 
     pub fn get_paned_top_right(&self) -> i32 {
         let paned_top_right: gtk::Paned = self.builder.get_object("panedTopRight").expect("panedTopRight not found");
-        paned_top_right.get_position()
+        gtk::PanedExt::get_position(&paned_top_right)
     }
 
     pub fn get_req_headers(&self) -> String {
@@ -184,7 +184,7 @@ impl MainWindow {
     }
 
     pub fn set_window_size(&self, w: i32, h: i32) {
-        let mut alloc = self.window.get_allocation();
+        let mut alloc: gdk::Rectangle = gtk::WidgetExt::get_allocation(&self.window);
         alloc.width = w;
         alloc.height = h;
         self.window.set_allocation(&alloc);
@@ -269,16 +269,16 @@ impl MainWindow {
             });
 
         MainWindow {
-            builder: builder,
-            window: window, 
-            perform_btn: perform_btn, 
-            url_inp: url_inp, 
-            resp_mtx: resp_mtx, 
-            headers_mtx: headers_mtx,
-            method_sel: method_sel,
-            req_mtx: req_mtx,
-            resp_headers_mtx: resp_headers_mtx,
-            lang_manager: lang_manager,
+            builder,
+            window,
+            perform_btn,
+            url_inp,
+            resp_mtx,
+            headers_mtx,
+            method_sel,
+            req_mtx,
+            resp_headers_mtx,
+            lang_manager,
         }
     }
 }
