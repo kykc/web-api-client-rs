@@ -19,6 +19,9 @@ rusqlite = "^0.14"
 quick-xml = "^0.12"
 html5ever = "^0.22"
 
+[dev-dependencies]
+cargo-deb = "^1.12"
+
 [dependencies.sourceview]
 features = ["v3_20"]
 version = "^0.5"
