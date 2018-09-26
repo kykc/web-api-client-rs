@@ -69,6 +69,10 @@ pub fn apply_to_src_buf(view: &sourceview::View, worker: &Fn(&sourceview::Buffer
     result
 }
 
+pub fn get_gtk_obj_by_id<T: gtk::IsA<gtk::Object>>(builder: &gtk::Builder, id: &str) -> T {
+    builder.get_object(id).expect(&(String::from("Couldn't get ") + id))
+}
+
 impl TextWidget for Entry {
     fn get_all_text(&self) -> String {
         self.get_text().unwrap_or(String::from(""))

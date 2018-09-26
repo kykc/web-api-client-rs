@@ -1,5 +1,3 @@
-#![windows_subsystem = "windows"]
-
 extern crate gio;
 extern crate gtk;
 extern crate serde_json;
@@ -98,7 +96,9 @@ impl MainWindow {
         };
 
         let cont: &gtk::Container = window.upcast_ref();
-        gtk_ext::traverse_gtk_container(cont, &|x| x.get_style_context().unwrap().add_provider(&css, 600));
+        gtk_ext::traverse_gtk_container(cont, &|x| {
+            x.get_style_context().map(|y| y.add_provider(&css, 600));
+        });
     }
 
     fn get_request_method(&self) -> RequestMethod {
@@ -190,6 +190,17 @@ impl MainWindow {
         self.window.set_allocation(&alloc);
     }
 
+    fn quit(&self) -> Inhibit {
+        CONFIG.with(|conf| {
+            let mut state = conf.borrow_mut();
+            state.update_from_window(&self);
+            state.write_to_db(&config::connect_to_state());
+        });
+
+        self.window.destroy();
+        Inhibit(false)
+    }
+
     fn new(glade: &str, application: &gtk::Application) -> MainWindow {
         let builder = Builder::new_from_string(glade);
 
@@ -204,6 +215,7 @@ impl MainWindow {
         let search_bar: gtk::SearchBar = builder.get_object("searchBar").expect("searchBar not found");
         let search_inp: gtk::SearchEntry = builder.get_object("searchInp").expect("searchInp not found");
         let find_acm: gtk::ImageMenuItem = builder.get_object("findAcm").expect("findAcm not found");
+        let quit_acm: gtk::ImageMenuItem = gtk_ext::get_gtk_obj_by_id(&builder, "quitAcm");
 
         MainWindow::apply_css(&window);
         window.set_application(application);
@@ -268,7 +280,7 @@ impl MainWindow {
                 gtk_ext::apply_to_src_buf(&resp_headers_mtx, &|x| x.set_language(&lang));
             });
 
-        MainWindow {
+        let result = MainWindow {
             builder,
             window,
             perform_btn,
@@ -279,7 +291,13 @@ impl MainWindow {
             req_mtx,
             resp_headers_mtx,
             lang_manager,
-        }
+        };
+
+        quit_acm.connect_activate(gtk_clone!(result => move |_| {
+            result.window.destroy();
+        }));
+
+        result
     }
 }
 
@@ -290,14 +308,7 @@ pub fn build_ui(application: &gtk::Application) {
     let m_win = MainWindow::new(include_str!("main.glade"), application);
     
     m_win.window.connect_delete_event(gtk_clone!(m_win => move |_, _| {
-        CONFIG.with(|conf| {
-            let mut state = conf.borrow_mut();
-            state.update_from_window(&m_win);
-            state.write_to_db(&config::connect_to_state());
-        });
-        
-        m_win.window.destroy();
-        Inhibit(false)
+        m_win.quit()
     }));
 
     let (tx, rx) = channel();
