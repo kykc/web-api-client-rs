@@ -28,12 +28,7 @@ pub fn populate_headers<T: gtk::prelude::IsA<gtk::Window>>(text: &str, win: &T) 
     let mut headers = HeaderMap::new();
 
     for line in text.lines() {
-        let tokens = line.split(":").collect::<Vec<&str>>();
-        
-        let pair: Option<(&str, &str)> = match tokens.as_slice() {
-            &[a, b] => Some((a, b)),
-            _ => None
-        };
+        let pair = line.find(":").map(|x| line.split_at(x));
 
         let parsed_pair = pair.and_then(|x| {
             let name = HeaderName::from_bytes(x.0.as_bytes()).ok();
