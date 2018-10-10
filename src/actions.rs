@@ -32,7 +32,7 @@ pub fn populate_headers<T: gtk::prelude::IsA<gtk::Window>>(text: &str, win: &T) 
 
         let parsed_pair = pair.and_then(|x| {
             let name = HeaderName::from_bytes(x.0.as_bytes()).ok();
-            let val = x.1.parse::<HeaderValue>().ok();
+            let val = x.1.trim_left_matches(':').parse::<HeaderValue>().ok();
 
             to_pair_if_both(name, val)
         });
