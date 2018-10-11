@@ -318,7 +318,9 @@ pub fn build_ui(application: &gtk::Application) {
 
     m_win.perform_btn.connect_clicked(gtk_clone!(m_win => move |_| {
         m_win.perform_btn.set_sensitive(false);
-        let headers = actions::populate_headers(&m_win.headers_mtx.get_all_text(), &m_win.window);
+        let headers = actions::parse_headers(&m_win.headers_mtx.get_all_text(),
+            &mut |x| gtk_ext::show_message(x, &m_win.window));
+
         let highlight_override = headers.
             get("X-AU-Syntax").
             map(|x| x.as_bytes()).
@@ -379,3 +381,6 @@ pub fn main() {
     application.connect_activate(|_| {});
     application.run(&args().collect::<Vec<_>>());
 }
+
+#[cfg(test)]
+mod actions_tests;

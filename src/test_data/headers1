@@ -1,0 +1,5 @@
+Content-Type: application/json
+Cookie:
+
+SOAPAction: http://example.com/action
+

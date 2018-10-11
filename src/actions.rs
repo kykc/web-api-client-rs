@@ -1,7 +1,6 @@
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use mime::{Mime, TEXT_PLAIN, APPLICATION, JSON, TEXT, XML, HTML};
 use serde_json;
-use gtk;
 use gtk_ext;
 use gtk_ext::{TextWidget};
 use sourceview::{BufferExt, LanguageManagerExt};
@@ -24,22 +23,24 @@ pub fn to_pair_if_both<T, U>(t: Option<T>, u: Option<U>) -> Option<(T, U)> {
     }
 }
 
-pub fn populate_headers<T: gtk::prelude::IsA<gtk::Window>>(text: &str, win: &T) -> HeaderMap {
+pub fn parse_headers<F: FnMut(&str)>(text: &str, error_log: &mut F) -> HeaderMap {
     let mut headers = HeaderMap::new();
 
-    for line in text.lines() {
-        let pair = line.find(":").map(|x| line.split_at(x));
+    for line in text.lines().filter(|x| x.trim() != "") {
+        let pair = line.find(":").
+            map(|x| line.split_at(x)).
+            map(|p| (p.0, p.1.get(1..).unwrap_or("")));
 
         let parsed_pair = pair.and_then(|x| {
             let name = HeaderName::from_bytes(x.0.as_bytes()).ok();
-            let val = x.1.trim_left_matches(':').parse::<HeaderValue>().ok();
+            let val = x.1.parse::<HeaderValue>().ok();
 
             to_pair_if_both(name, val)
         });
 
         match parsed_pair {
             Some(p) => { headers.append(p.0, p.1); },
-            None => { gtk_ext::show_message(&(String::from("Failed to parse header - ") + line), win); }
+            None => error_log(&(String::from("Failed to parse header - ") + line))
         };
     }
 
